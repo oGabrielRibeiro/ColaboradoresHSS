@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/theme/app_theme.dart';
+import 'package:frontend/screens/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,7 +14,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'RH Documentos',
       theme: AppTheme.lightTheme,
-      home: const Placeholder(), // depois trocaremos pela tela de login
+      home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
