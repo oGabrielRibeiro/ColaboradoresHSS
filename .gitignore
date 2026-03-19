@@ -1,0 +1,63 @@
+# === GERAL ===
+*.log
+*.pid
+*.seed
+*.pid.lock
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.DS_Store?
+
+# === BACKEND (Node.js) ===
+# Dependências
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ambiente e arquivos de configuração sensíveis
+.env
+.env.local
+.env.production
+.env.development
+
+# Pastas de upload e dados gerados
+uploads/
+coverage/
+.nyc_output/
+
+# === FRONTEND (Flutter) ===
+# Diretórios de build
+build/
+ios/.generated/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/App.framework/
+ios/Flutter/Flutter.framework/
+android/app/.cxx/
+android/app/build/
+web/build/
+
+# Arquivos do Dart/Flutter
+.dart_tool/
+.packages
+pubspec.lock
+**/doc/api/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE (opcional - se quiser ignorar configurações locais)
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+android/.idea/
+ios/.idea/
+
+# === AMBIENTE DOCKER (se houver) ===
+# Não versionar arquivos temporários do Docker, mas o docker-compose.yml normalmente é versionado.
+# Se você gerar algum .env a partir de exemplos, ignore o .env real.
+docker-compose.override.yml
