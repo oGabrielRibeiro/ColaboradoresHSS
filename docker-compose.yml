@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15
-    container_name: rh_docs_db
+    container_name: colaboradores_hss_db
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -14,10 +14,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app_network
 
   backend:
     build: ./backend
-    container_name: rh_docs_backend
+    container_name: colaboradores_hss_backend
     restart: always
     ports:
       - "3000:3000"
@@ -31,6 +33,12 @@ services:
       PORT: 3000
     volumes:
       - ./uploads:/app/uploads
+    networks:
+      - app_network
 
 volumes:
   postgres_data:
+
+networks:
+  app_network:
+    driver: bridge
