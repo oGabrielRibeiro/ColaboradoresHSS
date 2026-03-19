@@ -1,5 +1,3 @@
--- Criação das tabelas
-
 CREATE TABLE IF NOT EXISTS empresas (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(200) NOT NULL,
@@ -29,7 +27,7 @@ CREATE TABLE IF NOT EXISTS tipos_documento (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE,
     descricao TEXT,
-    tipo VARCHAR(20) DEFAULT 'empresa' -- 'pessoal' ou 'empresa'
+    tipo VARCHAR(20) DEFAULT 'empresa'
 );
 
 CREATE TABLE IF NOT EXISTS documentos (
@@ -50,11 +48,10 @@ CREATE TABLE IF NOT EXISTS documentos (
 CREATE TABLE IF NOT EXISTS notificacoes_enviadas (
     id SERIAL PRIMARY KEY,
     documento_id INTEGER REFERENCES documentos(id),
-    tipo_alerta VARCHAR(20), -- 'vencido', 'proximo'
+    tipo_alerta VARCHAR(20),
     enviado_em TIMESTAMP DEFAULT NOW()
 );
 
--- Inserir tipos de documento padrão
 INSERT INTO tipos_documento (nome, tipo) VALUES 
 ('RG', 'pessoal'),
 ('CPF', 'pessoal'),

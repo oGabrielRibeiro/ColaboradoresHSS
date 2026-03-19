@@ -1,67 +1,60 @@
 const express = require('express');
-const cors = require('cors');
 const { Pool } = require('pg');
 const dotenv = require('dotenv');
-const multer = require('multer');
-const path = require('path');
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Configuração do banco de dados
+// Configuração do pool de conexão
 const pool = new Pool({
-  host: process.env.DB_HOST,
+  host: process.env.DB_HOST || 'postgres',
+  port: 5432,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
-  port: 5432,
 });
 
-// Teste de conexão
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Erro ao conectar ao banco:', err);
-  } else {
-    console.log('Conectado ao PostgreSQL em:', res.rows[0].now);
+// Função para aguardar o banco de dados ficar pronto
+async function waitForDatabase() {
+  const maxRetries = 10;
+  const retryInterval = 2000; // 2 segundos
+
+  for (let i = 1; i <= maxRetries; i++) {
+    try {
+      const client = await pool.connect();
+      console.log('Conectado ao banco de dados com sucesso!');
+      client.release();
+      return true;
+    } catch (err) {
+      console.log(`Tentativa ${i} de ${maxRetries}: banco de dados não está pronto. Aguardando ${retryInterval/1000}s...`);
+      if (i === maxRetries) {
+        throw new Error('Não foi possível conectar ao banco de dados após várias tentativas.');
+      }
+      await new Promise(resolve => setTimeout(resolve, retryInterval));
+    }
   }
-});
+}
 
-// Configuração do multer para uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../uploads/'));
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage });
-
-// Rotas básicas
+// Rota de teste
 app.get('/', (req, res) => {
-  res.json({ message: 'API do sistema RH Documentos' });
+  res.send('API do RH Documentos está rodando!');
 });
 
-// Exemplo de rota para listar colaboradores
-app.get('/colaboradores', async (req, res) => {
+// Inicia o servidor após conectar ao banco
+async function startServer() {
   try {
-    const result = await pool.query('SELECT * FROM colaboradores ORDER BY nome');
-    res.json(result.rows);
+    await waitForDatabase();
+    app.listen(port, () => {
+      console.log(`Servidor rodando na porta ${port}`);
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar colaboradores' });
+    console.error('Erro fatal:', err.message);
+    process.exit(1);
   }
-});
+}
 
-// Iniciar servidor
-app.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
-});
+startServer();
