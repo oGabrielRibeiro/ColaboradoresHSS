@@ -177,6 +177,48 @@ app.post('/vinculos', async (req, res) => {
   }
 });
 
+// Rota para resumo do dashboard
+app.get('/dashboard/resumo', async (req, res) => {
+  try {
+    // Total de colaboradores
+    const colaboradores = await pool.query('SELECT COUNT(*) FROM colaboradores');
+    const totalColaboradores = parseInt(colaboradores.rows[0].count);
+
+    // Total de empresas
+    const empresas = await pool.query('SELECT COUNT(*) FROM empresas');
+    const totalEmpresas = parseInt(empresas.rows[0].count);
+
+    // Documentos vencidos (data_validade < hoje)
+    const vencidos = await pool.query(
+      "SELECT COUNT(*) FROM documentos WHERE data_validade < CURRENT_DATE AND ativo = true"
+    );
+    const documentosVencidos = parseInt(vencidos.rows[0].count);
+
+    // Documentos a vencer nos próximos 30 dias
+    const aVencer = await pool.query(
+      "SELECT COUNT(*) FROM documentos WHERE data_validade BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days' AND ativo = true"
+    );
+    const documentosAVencer = parseInt(aVencer.rows[0].count);
+
+    // Documentos OK (válidos por mais de 30 dias)
+    const ok = await pool.query(
+      "SELECT COUNT(*) FROM documentos WHERE data_validade > CURRENT_DATE + INTERVAL '30 days' AND ativo = true"
+    );
+    const documentosOK = parseInt(ok.rows[0].count);
+
+    res.json({
+      totalColaboradores,
+      totalEmpresas,
+      documentosVencidos,
+      documentosAVencer,
+      documentosOK,
+    });
+  } catch (err) {
+    console.error('Erro no dashboard:', err);
+    res.status(500).json({ error: 'Erro ao carregar resumo' });
+  }
+});
+
 // ==================== INICIALIZAÇÃO ====================
 async function startServer() {
   try {
