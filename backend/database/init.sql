@@ -1,4 +1,5 @@
--- Criação das tabelas conforme modelagem anterior
+-- Criação das tabelas
+
 CREATE TABLE IF NOT EXISTS empresas (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(200) NOT NULL,
