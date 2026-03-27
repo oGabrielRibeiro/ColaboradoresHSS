@@ -19,8 +19,8 @@ class Colaborador {
       nome: json['nome'],
       email: json['email'],
       telefone: json['telefone'],
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
           : null,
     );
   }

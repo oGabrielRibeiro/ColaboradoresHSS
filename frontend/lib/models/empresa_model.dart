@@ -19,8 +19,8 @@ class Empresa {
       nome: json['nome'],
       cnpj: json['cnpj'],
       contato: json['contato'],
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
           : null,
     );
   }

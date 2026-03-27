@@ -2,6 +2,8 @@ class Vinculo {
   final int? id;
   final int colaboradorId;
   final int empresaId;
+  final String? empresaNome;
+  final String? empresaCnpj;
   final bool ativo;
   final DateTime? createdAt;
 
@@ -9,6 +11,8 @@ class Vinculo {
     this.id,
     required this.colaboradorId,
     required this.empresaId,
+    this.empresaNome,
+    this.empresaCnpj,
     this.ativo = true,
     this.createdAt,
   });
@@ -18,9 +22,11 @@ class Vinculo {
       id: json['id'],
       colaboradorId: json['colaborador_id'],
       empresaId: json['empresa_id'],
+      empresaNome: json['empresa_nome'],
+      empresaCnpj: json['empresa_cnpj'],
       ativo: json['ativo'] ?? true,
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
           : null,
     );
   }
@@ -30,6 +36,8 @@ class Vinculo {
       'id': id,
       'colaborador_id': colaboradorId,
       'empresa_id': empresaId,
+      'empresa_nome': empresaNome,
+      'empresa_cnpj': empresaCnpj,
       'ativo': ativo,
       'created_at': createdAt?.toIso8601String(),
     };

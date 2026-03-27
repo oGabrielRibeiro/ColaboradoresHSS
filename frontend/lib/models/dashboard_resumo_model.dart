@@ -2,7 +2,7 @@ class DashboardResumo {
   final int totalColaboradores;
   final int totalEmpresas;
   final int documentosVencidos;
-  final int documentosAVencer; // próximos 30 dias
+  final int documentosAVencer;
   final int documentosOK;
 
   DashboardResumo({

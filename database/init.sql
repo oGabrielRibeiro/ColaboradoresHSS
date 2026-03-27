@@ -14,6 +14,15 @@ CREATE TABLE IF NOT EXISTS colaboradores (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS usuarios_rh (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(120) NOT NULL,
+    email VARCHAR(160) NOT NULL UNIQUE,
+    senha_hash VARCHAR(255) NOT NULL,
+    ativo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS vinculos (
     id SERIAL PRIMARY KEY,
     colaborador_id INTEGER REFERENCES colaboradores(id) ON DELETE CASCADE,
@@ -22,6 +31,9 @@ CREATE TABLE IF NOT EXISTS vinculos (
     created_at TIMESTAMP DEFAULT NOW(),
     UNIQUE(colaborador_id, empresa_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_vinculos_colaborador_id ON vinculos(colaborador_id);
+CREATE INDEX IF NOT EXISTS idx_vinculos_empresa_id ON vinculos(empresa_id);
 
 CREATE TABLE IF NOT EXISTS tipos_documento (
     id SERIAL PRIMARY KEY,
@@ -45,12 +57,18 @@ CREATE TABLE IF NOT EXISTS documentos (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_documentos_colaborador_id ON documentos(colaborador_id);
+CREATE INDEX IF NOT EXISTS idx_documentos_empresa_id ON documentos(empresa_id);
+CREATE INDEX IF NOT EXISTS idx_documentos_tipo_documento_id ON documentos(tipo_documento_id);
+
 CREATE TABLE IF NOT EXISTS notificacoes_enviadas (
     id SERIAL PRIMARY KEY,
     documento_id INTEGER REFERENCES documentos(id),
     tipo_alerta VARCHAR(20),
     enviado_em TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_notificacoes_documento_id ON notificacoes_enviadas(documento_id);
 
 INSERT INTO tipos_documento (nome, tipo) VALUES 
 ('RG', 'pessoal'),

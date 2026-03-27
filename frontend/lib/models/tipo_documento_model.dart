@@ -21,11 +21,6 @@ class TipoDocumento {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'nome': nome,
-      'descricao': descricao,
-      'tipo': tipo,
-    };
+    return {'id': id, 'nome': nome, 'descricao': descricao, 'tipo': tipo};
   }
 }

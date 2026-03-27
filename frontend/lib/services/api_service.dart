@@ -1,31 +1,163 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/models/colaborador_model.dart';
-import 'package:frontend/models/empresa_model.dart';
+import 'package:frontend/models/dashboard_resumo_model.dart';
 import 'package:frontend/models/documento_model.dart';
+import 'package:frontend/models/paginated_response.dart';
+import 'package:frontend/models/empresa_model.dart';
 import 'package:frontend/models/tipo_documento_model.dart';
 import 'package:frontend/models/vinculo_model.dart';
-import 'package:frontend/models/dashboard_resumo_model.dart';
 
 class ApiService {
+  static const String _tokenStorageKey = 'auth_token';
+  static Map<String, dynamic>? _usuarioAtual;
+  static String? _token;
+
   static final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: 'http://localhost:3000', // URL do backend
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
+      baseUrl: _resolveBaseUrl(),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
       headers: {'Content-Type': 'application/json'},
     ),
   );
 
-  // --- Empresas ---
-  static Future<List<Empresa>> getEmpresas() async {
+  static String _resolveBaseUrl() {
+    if (kIsWeb) {
+      return 'http://localhost:3000';
+    }
+
+    return defaultTargetPlatform == TargetPlatform.android
+        ? 'http://10.0.2.2:3000'
+        : 'http://localhost:3000';
+  }
+
+  static String get baseUrl => _dio.options.baseUrl;
+  static bool get isAuthenticated => _token != null;
+  static Map<String, dynamic>? get usuarioAtual => _usuarioAtual;
+
+  static Future<void> initializeSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final persistedToken = prefs.getString(_tokenStorageKey);
+    if (persistedToken == null || persistedToken.isEmpty) {
+      return;
+    }
+
+    _token = persistedToken;
+    _dio.options.headers['Authorization'] = 'Bearer $_token';
+
     try {
-      final response = await _dio.get('/empresas');
-      return (response.data as List)
+      final me = await getAuthMe();
+      _usuarioAtual = me;
+    } catch (_) {
+      await logout();
+    }
+  }
+
+  static Future<Map<String, dynamic>> login({
+    required String email,
+    required String senha,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/auth/login',
+        data: {'email': email.trim().toLowerCase(), 'senha': senha},
+      );
+
+      final data = Map<String, dynamic>.from(response.data);
+      final token = data['token'] as String?;
+      final usuario = data['usuario'] as Map<String, dynamic>?;
+
+      if (token == null || usuario == null) {
+        throw Exception('Resposta de autenticacao invalida');
+      }
+
+      _token = token;
+      _usuarioAtual = usuario;
+      _dio.options.headers['Authorization'] = 'Bearer $_token';
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_tokenStorageKey, token);
+
+      return usuario;
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao autenticar usuario'));
+    }
+  }
+
+  static Future<void> logout() async {
+    _token = null;
+    _usuarioAtual = null;
+    _dio.options.headers.remove('Authorization');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenStorageKey);
+  }
+
+  static Future<Map<String, dynamic>> getAuthMe() async {
+    try {
+      final response = await _dio.get('/auth/me');
+      final data = Map<String, dynamic>.from(response.data);
+      final usuario = Map<String, dynamic>.from(data['usuario'] as Map);
+      _usuarioAtual = usuario;
+      return usuario;
+    } catch (e) {
+      throw Exception(_extractError(e, 'Sessao invalida'));
+    }
+  }
+
+  static Future<String> getSignedFileUrl(String arquivoPath) async {
+    try {
+      final response = await _dio.get(
+        '/arquivos/link',
+        queryParameters: {'path': arquivoPath},
+      );
+      final data = Map<String, dynamic>.from(response.data);
+      final url = data['url'] as String?;
+      if (url == null || url.isEmpty) {
+        throw Exception('Link de arquivo invalido');
+      }
+      return url;
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao gerar link do arquivo'));
+    }
+  }
+
+  static String _extractError(Object error, String fallbackMessage) {
+    if (error is DioException) {
+      final responseData = error.response?.data;
+      if (responseData is Map<String, dynamic> &&
+          responseData['error'] is String) {
+        return responseData['error'] as String;
+      }
+
+      if (error.message != null && error.message!.trim().isNotEmpty) {
+        return error.message!;
+      }
+    }
+
+    return fallbackMessage;
+  }
+
+  static Future<PaginatedResponse<Empresa>> getEmpresas({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/empresas',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+      final items = (response.data as List)
           .map((json) => Empresa.fromJson(json))
           .toList();
+      final totalCount =
+          int.tryParse(response.headers.value('x-total-count') ?? '0') ?? 0;
+
+      return PaginatedResponse(items: items, totalCount: totalCount);
     } catch (e) {
-      throw Exception('Erro ao carregar empresas: $e');
+      throw Exception(_extractError(e, 'Erro ao carregar empresas'));
     }
   }
 
@@ -34,19 +166,57 @@ class ApiService {
       final response = await _dio.post('/empresas', data: empresa.toJson());
       return Empresa.fromJson(response.data);
     } catch (e) {
-      throw Exception('Erro ao criar empresa: $e');
+      throw Exception(_extractError(e, 'Erro ao criar empresa'));
     }
   }
 
-  // --- Colaboradores ---
-  static Future<List<Colaborador>> getColaboradores() async {
+  static Future<Empresa> updateEmpresa(Empresa empresa) async {
     try {
-      final response = await _dio.get('/colaboradores');
-      return (response.data as List)
+      final response = await _dio.put(
+        '/empresas/${empresa.id}',
+        data: empresa.toJson(),
+      );
+      return Empresa.fromJson(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao atualizar empresa'));
+    }
+  }
+
+  static Future<void> deleteEmpresa(int id) async {
+    try {
+      await _dio.delete('/empresas/$id');
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao remover empresa'));
+    }
+  }
+
+  static Future<PaginatedResponse<Colaborador>> getColaboradores({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/colaboradores',
+        queryParameters: {'page': page, 'limit': limit},
+      );
+      final items = (response.data as List)
           .map((json) => Colaborador.fromJson(json))
           .toList();
+      final totalCount =
+          int.tryParse(response.headers.value('x-total-count') ?? '0') ?? 0;
+
+      return PaginatedResponse(items: items, totalCount: totalCount);
     } catch (e) {
-      throw Exception('Erro ao carregar colaboradores: $e');
+      throw Exception(_extractError(e, 'Erro ao carregar colaboradores'));
+    }
+  }
+
+  static Future<Colaborador> getColaboradorById(int id) async {
+    try {
+      final response = await _dio.get('/colaboradores/$id');
+      return Colaborador.fromJson(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao carregar colaborador'));
     }
   }
 
@@ -58,11 +228,30 @@ class ApiService {
       );
       return Colaborador.fromJson(response.data);
     } catch (e) {
-      throw Exception('Erro ao criar colaborador: $e');
+      throw Exception(_extractError(e, 'Erro ao criar colaborador'));
     }
   }
 
-  // --- Tipos de Documento ---
+  static Future<Colaborador> updateColaborador(Colaborador colaborador) async {
+    try {
+      final response = await _dio.put(
+        '/colaboradores/${colaborador.id}',
+        data: colaborador.toJson(),
+      );
+      return Colaborador.fromJson(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao atualizar colaborador'));
+    }
+  }
+
+  static Future<void> deleteColaborador(int id) async {
+    try {
+      await _dio.delete('/colaboradores/$id');
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao remover colaborador'));
+    }
+  }
+
   static Future<List<TipoDocumento>> getTiposDocumento() async {
     try {
       final response = await _dio.get('/tipos-documento');
@@ -70,25 +259,53 @@ class ApiService {
           .map((json) => TipoDocumento.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Erro ao carregar tipos de documento: $e');
+      throw Exception(_extractError(e, 'Erro ao carregar tipos de documento'));
     }
   }
 
-  // --- Documentos ---
-  static Future<List<Documento>> getDocumentosPorColaborador(
-    int colaboradorId,
-  ) async {
+  static Future<PaginatedResponse<Documento>> getDocumentos({
+    int? colaboradorId,
+    int? empresaId,
+    String? status,
+    bool somenteAtivos = true,
+    int page = 1,
+    int limit = 20,
+  }) async {
     try {
       final response = await _dio.get(
         '/documentos',
-        queryParameters: {'colaborador_id': colaboradorId},
+        queryParameters: {
+          if (colaboradorId != null) 'colaborador_id': colaboradorId,
+          if (empresaId != null) 'empresa_id': empresaId,
+          if (status != null) 'status': status,
+          'ativo': somenteAtivos,
+          'page': page,
+          'limit': limit,
+        },
       );
-      return (response.data as List)
+
+      final items = (response.data as List)
           .map((json) => Documento.fromJson(json))
           .toList();
+      final totalCount =
+          int.tryParse(response.headers.value('x-total-count') ?? '0') ?? 0;
+
+      return PaginatedResponse(items: items, totalCount: totalCount);
     } catch (e) {
-      throw Exception('Erro ao carregar documentos: $e');
+      throw Exception(_extractError(e, 'Erro ao carregar documentos'));
     }
+  }
+
+  static Future<List<Documento>> getDocumentosPorColaborador(
+    int colaboradorId,
+  ) async {
+    // TODO: A tela de detalhes do colaborador deve ser paginada no futuro
+    // Por enquanto, buscamos apenas os primeiros 100 para evitar sobrecarga
+    final response = await getDocumentos(
+      colaboradorId: colaboradorId,
+      limit: 100,
+    );
+    return response.items;
   }
 
   static Future<Documento> createDocumento(Documento documento) async {
@@ -96,11 +313,23 @@ class ApiService {
       final response = await _dio.post('/documentos', data: documento.toJson());
       return Documento.fromJson(response.data);
     } catch (e) {
-      throw Exception('Erro ao criar documento: $e');
+      throw Exception(_extractError(e, 'Erro ao criar documento'));
     }
   }
 
-  // --- Vínculos ---
+  static Future<List<Documento>> getHistoricoDocumento(int documentoId) async {
+    try {
+      final response = await _dio.get('/documentos/$documentoId/historico');
+      return (response.data as List)
+          .map((json) => Documento.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception(
+        _extractError(e, 'Erro ao carregar historico do documento'),
+      );
+    }
+  }
+
   static Future<List<Vinculo>> getVinculosPorColaborador(
     int colaboradorId,
   ) async {
@@ -113,71 +342,24 @@ class ApiService {
           .map((json) => Vinculo.fromJson(json))
           .toList();
     } catch (e) {
-      throw Exception('Erro ao carregar vínculos: $e');
+      throw Exception(_extractError(e, 'Erro ao carregar vinculos'));
     }
   }
 
-  static Future<Map<String, int>> getDashboardStats() async {
+  static Future<Vinculo> createVinculo(Vinculo vinculo) async {
     try {
-      // Busca todos os documentos
-      final documentos = await getDocumentos();
-
-      int vencidos = 0;
-      int aVencer = 0;
-      int dentroPrazo = 0;
-      final hoje = DateTime.now();
-
-      for (var doc in documentos) {
-        if (doc.dataValidade.isBefore(hoje)) {
-          vencidos++;
-        } else {
-          final diasRestantes = doc.dataValidade.difference(hoje).inDays;
-          if (diasRestantes <= 30) {
-            aVencer++;
-          } else {
-            dentroPrazo++;
-          }
-        }
-      }
-
-      return {
-        'vencidos': vencidos,
-        'aVencer': aVencer,
-        'dentroPrazo': dentroPrazo,
-      };
+      final response = await _dio.post('/vinculos', data: vinculo.toJson());
+      return Vinculo.fromJson(response.data);
     } catch (e) {
-      throw Exception('Erro ao carregar estatísticas: $e');
+      throw Exception(_extractError(e, 'Erro ao criar vinculo'));
     }
   }
 
-  // Método auxiliar para buscar todos os documentos (sem filtro)
-  static Future<List<Documento>> getDocumentos() async {
+  static Future<void> deleteVinculo(int id) async {
     try {
-      final response = await _dio.get('/documentos');
-      return (response.data as List)
-          .map((json) => Documento.fromJson(json))
-          .toList();
+      await _dio.delete('/vinculos/$id');
     } catch (e) {
-      throw Exception('Erro ao carregar documentos: $e');
-    }
-  }
-
-  // Métodos para contar colaboradores e empresas
-  static Future<int> getTotalColaboradores() async {
-    try {
-      final response = await _dio.get('/colaboradores');
-      return (response.data as List).length;
-    } catch (e) {
-      throw Exception('Erro ao contar colaboradores: $e');
-    }
-  }
-
-  static Future<int> getTotalEmpresas() async {
-    try {
-      final response = await _dio.get('/empresas');
-      return (response.data as List).length;
-    } catch (e) {
-      throw Exception('Erro ao contar empresas: $e');
+      throw Exception(_extractError(e, 'Erro ao remover vinculo'));
     }
   }
 
@@ -186,7 +368,45 @@ class ApiService {
       final response = await _dio.get('/dashboard/resumo');
       return DashboardResumo.fromJson(response.data);
     } catch (e) {
-      throw Exception('Erro ao carregar resumo: $e');
+      throw Exception(_extractError(e, 'Erro ao carregar resumo'));
+    }
+  }
+
+  static Future<Map<String, dynamic>> uploadArquivo(
+    FilePickerResult arquivo, {
+    int? documentoId,
+    String? novaValidade,
+  }) async {
+    try {
+      final file = arquivo.files.single;
+      late MultipartFile multipartFile;
+
+      if (kIsWeb) {
+        multipartFile = MultipartFile.fromBytes(
+          file.bytes!,
+          filename: file.name,
+        );
+      } else {
+        multipartFile = await MultipartFile.fromFile(
+          file.path!,
+          filename: file.name,
+        );
+      }
+
+      final formData = FormData.fromMap({
+        'arquivo': multipartFile,
+        if (documentoId != null) 'documentoId': documentoId,
+        if (novaValidade != null) 'novaValidade': novaValidade,
+      });
+
+      final response = await _dio.post(
+        documentoId != null ? '/documentos/substituir' : '/upload',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+      return Map<String, dynamic>.from(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro no upload do arquivo'));
     }
   }
 }

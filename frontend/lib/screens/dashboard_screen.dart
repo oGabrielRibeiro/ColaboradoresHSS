@@ -1,8 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:frontend/theme/app_theme.dart';
-import 'package:frontend/services/api_service.dart';
 import 'package:frontend/models/dashboard_resumo_model.dart';
+import 'package:frontend/services/api_service.dart';
+import 'package:frontend/theme/app_theme.dart';
 import 'package:frontend/widgets/dashboard_card.dart';
+import 'package:go_router/go_router.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,6 +17,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   DashboardResumo? _resumo;
   bool _isLoading = true;
   String? _error;
+  bool _alertaExibido = false;
 
   @override
   void initState() {
@@ -34,189 +37,442 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _resumo = resumo;
         _isLoading = false;
       });
-
-      // Verifica se há alertas para mostrar no popup
       _mostrarPopupSeNecessario(resumo);
     } catch (e) {
+      final mensagem = e.toString().replaceFirst('Exception: ', '');
+      if (mensagem.toLowerCase().contains('token') ||
+          mensagem.toLowerCase().contains('sessao') ||
+          mensagem.toLowerCase().contains('nao autorizado')) {
+        await ApiService.logout(); // Limpa o token localmente
+        if (mounted) {
+          context.go('/login'); // Redireciona para o login usando GoRouter
+        }
+        return;
+      }
+
       setState(() {
-        _error = 'Erro ao carregar dados: $e';
+        _error = mensagem;
         _isLoading = false;
       });
     }
   }
 
   void _mostrarPopupSeNecessario(DashboardResumo resumo) {
+    if (_alertaExibido) {
+      return;
+    }
+
     if (resumo.documentosVencidos > 0 || resumo.documentosAVencer > 0) {
+      _alertaExibido = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _mostrarPopupAlerta(resumo);
+        if (mounted) {
+          _mostrarPopupAlerta(resumo);
+        }
       });
     }
   }
 
   void _mostrarPopupAlerta(DashboardResumo resumo) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('📋 Atenção!'),
+        title: const Text('Atencao nos vencimentos'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (resumo.documentosVencidos > 0)
-              Text(
-                '🔴 ${resumo.documentosVencidos} documento(s) VENCIDO(S)',
-                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            Text(
+              '${resumo.documentosVencidos} documento(s) vencido(s)',
+              style: const TextStyle(
+                color: AppTheme.danger,
+                fontWeight: FontWeight.w700,
               ),
-            if (resumo.documentosAVencer > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '🟡 ${resumo.documentosAVencer} documento(s) a vencer nos próximos 30 dias',
-                  style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.w500),
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${resumo.documentosAVencer} documento(s) a vencer em 30 dias',
+              style: const TextStyle(
+                color: AppTheme.warning,
+                fontWeight: FontWeight.w600,
               ),
+            ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Navegar para a lista de documentos vencidos
-            },
-            child: const Text('Ver vencidos'),
+            child: const Text('Fechar'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickAction({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: AppTheme.primaryGreen),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final cardsCrossAxisCount = width > 1100
+        ? 4
+        : width > 700
+        ? 2
+        : 1;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: const Text('Painel RH'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
             onPressed: _carregarDados,
+            icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushReplacementNamed(context, '/login');
+            onPressed: () async {
+              await ApiService.logout();
+              if (!context.mounted) {
+                return;
+              }
+              context.go('/login'); // Redireciona para o login usando GoRouter
             },
+            icon: const Icon(Icons.logout_rounded),
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error!),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _carregarDados,
-                        child: const Text('Tentar novamente'),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: _carregarDados,
+                      child: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _carregarDados,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFDCF2EA), Color(0xFFE6ECFF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _carregarDados,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Cards principais
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.2,
-                          children: [
-                            DashboardCard(
-                              title: 'Colaboradores',
-                              value: _resumo?.totalColaboradores.toString() ?? '0',
-                              icon: Icons.people,
-                              color: AppTheme.primaryGreen,
-                              onTap: () {
-                                // TODO: Navegar para lista de colaboradores
-                              },
-                            ),
-                            DashboardCard(
-                              title: 'Empresas',
-                              value: _resumo?.totalEmpresas.toString() ?? '0',
-                              icon: Icons.business,
-                              color: AppTheme.primaryBlue,
-                              onTap: () {
-                                // TODO: Navegar para lista de empresas
-                              },
-                            ),
-                          ],
+                        Text(
+                          'Versao de testes 1.0',
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                        const SizedBox(height: 24),
-                        const Text(
-                          'Documentos',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
-                          childAspectRatio: 1.0,
-                          children: [
-                            DashboardCard(
-                              title: 'Vencidos',
-                              value: _resumo?.documentosVencidos.toString() ?? '0',
-                              icon: Icons.warning,
-                              color: Colors.red,
-                              onTap: () {
-                                // TODO: Filtrar vencidos
-                              },
-                            ),
-                            DashboardCard(
-                              title: 'A vencer',
-                              value: _resumo?.documentosAVencer.toString() ?? '0',
-                              icon: Icons.schedule,
-                              color: Colors.orange,
-                              onTap: () {
-                                // TODO: Filtrar a vencer
-                              },
-                            ),
-                            DashboardCard(
-                              title: 'OK',
-                              value: _resumo?.documentosOK.toString() ?? '0',
-                              icon: Icons.check_circle,
-                              color: Colors.green,
-                              onTap: () {
-                                // TODO: Filtrar ok
-                              },
-                            ),
-                          ],
+                        const SizedBox(height: 8),
+                        Text(
+                          'Acompanhe o volume de colaboradores, empresas e documentos com foco em vencimentos e consistencia operacional.',
+                          style: Theme.of(context).textTheme.bodyLarge,
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: cardsCrossAxisCount,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: width > 700 ? 1.45 : 1.25,
+                    children: [
+                      DashboardCard(
+                        title: 'Colaboradores',
+                        subtitle: 'Cadastros ativos no sistema',
+                        value: '${_resumo?.totalColaboradores ?? 0}',
+                        icon: Icons.groups_2_rounded,
+                        color: AppTheme.primaryGreen,
+                        onTap: () {
+                          context.push('/dashboard/colaboradores');
+                        },
+                      ),
+                      DashboardCard(
+                        title: 'Empresas',
+                        subtitle: 'Base usada nos vinculos',
+                        value: '${_resumo?.totalEmpresas ?? 0}',
+                        icon: Icons.apartment_rounded,
+                        color: AppTheme.primaryBlue,
+                        onTap: () {
+                          context.push('/dashboard/empresas');
+                        },
+                      ),
+                      DashboardCard(
+                        title: 'Vencidos',
+                        subtitle: 'Exigem acao imediata',
+                        value: '${_resumo?.documentosVencidos ?? 0}',
+                        icon: Icons.warning_amber_rounded,
+                        color: AppTheme.danger,
+                        onTap: () {
+                          context.push('/dashboard/documentos/vencido');
+                        },
+                      ),
+                      DashboardCard(
+                        title: 'A vencer',
+                        subtitle: 'Janela de 30 dias',
+                        value: '${_resumo?.documentosAVencer ?? 0}',
+                        icon: Icons.schedule_rounded,
+                        color: AppTheme.warning,
+                        onTap: () {
+                          context.push('/dashboard/documentos/a_vencer');
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (_resumo != null) _DocumentosStatusChart(resumo: _resumo!),
+                  if (_resumo != null) const SizedBox(height: 20),
+                  Text(
+                    'Acoes rapidas',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildQuickAction(
+                    icon: Icons.person_add_alt_1_rounded,
+                    title: 'Gerenciar colaboradores',
+                    subtitle: 'Cadastre, edite e acesse os detalhes',
+                    onTap: () {
+                      context.push('/dashboard/colaboradores');
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildQuickAction(
+                    icon: Icons.domain_add_rounded,
+                    title: 'Gerenciar empresas',
+                    subtitle: 'Mantenha a base de empresas e contatos',
+                    onTap: () {
+                      context.push('/dashboard/empresas');
+                    },
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _DocumentosStatusChart extends StatelessWidget {
+  final DashboardResumo resumo;
+
+  const _DocumentosStatusChart({required this.resumo});
+
+  @override
+  Widget build(BuildContext context) {
+    final total =
+        resumo.documentosVencidos +
+        resumo.documentosAVencer +
+        resumo.documentosOK;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Visao Geral de Documentos',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: CustomPaint(
+                    painter: _DonutChartPainter(
+                      vencidos: resumo.documentosVencidos,
+                      aVencer: resumo.documentosAVencer,
+                      ok: resumo.documentosOK,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            total.toString(),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Total',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Adicionar novo colaborador
-        },
-        child: const Icon(Icons.add),
+                const SizedBox(width: 32),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLegend(
+                        context,
+                        'Em dia',
+                        resumo.documentosOK,
+                        AppTheme.success,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLegend(
+                        context,
+                        'A vencer',
+                        resumo.documentosAVencer,
+                        AppTheme.warning,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildLegend(
+                        context,
+                        'Vencidos',
+                        resumo.documentosVencidos,
+                        AppTheme.danger,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildLegend(
+    BuildContext context,
+    String label,
+    int value,
+    Color color,
+  ) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        Text(
+          value.toString(),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+}
+
+class _DonutChartPainter extends CustomPainter {
+  final int vencidos;
+  final int aVencer;
+  final int ok;
+
+  _DonutChartPainter({
+    required this.vencidos,
+    required this.aVencer,
+    required this.ok,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = vencidos + aVencer + ok;
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 16;
+
+    if (total == 0) {
+      paint.color = Colors.grey.withValues(alpha: 0.2);
+      canvas.drawArc(rect, 0, 2 * math.pi, false, paint);
+      return;
+    }
+
+    double startAngle = -math.pi / 2; // Começa a desenhar do topo
+
+    void drawSegment(int value, Color color) {
+      if (value == 0) return;
+      final sweepAngle = (value / total) * 2 * math.pi;
+      paint.color = color;
+      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+      startAngle += sweepAngle;
+    }
+
+    // Ordem de desenho do gráfico
+    drawSegment(ok, AppTheme.success);
+    drawSegment(aVencer, AppTheme.warning);
+    drawSegment(vencidos, AppTheme.danger);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutChartPainter oldDelegate) {
+    return oldDelegate.vencidos != vencidos ||
+        oldDelegate.aVencer != aVencer ||
+        oldDelegate.ok != ok;
   }
 }

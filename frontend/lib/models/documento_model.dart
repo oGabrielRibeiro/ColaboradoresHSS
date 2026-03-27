@@ -3,6 +3,10 @@ class Documento {
   final int colaboradorId;
   final int? empresaId;
   final int tipoDocumentoId;
+  final String? tipoDocumentoNome;
+  final String? tipoDocumentoCategoria;
+  final String? empresaNome;
+  final String? colaboradorNome;
   final DateTime dataValidade;
   final String? arquivoNome;
   final String? arquivoPath;
@@ -17,6 +21,10 @@ class Documento {
     required this.colaboradorId,
     this.empresaId,
     required this.tipoDocumentoId,
+    this.tipoDocumentoNome,
+    this.tipoDocumentoCategoria,
+    this.empresaNome,
+    this.colaboradorNome,
     required this.dataValidade,
     this.arquivoNome,
     this.arquivoPath,
@@ -33,6 +41,10 @@ class Documento {
       colaboradorId: json['colaborador_id'],
       empresaId: json['empresa_id'],
       tipoDocumentoId: json['tipo_documento_id'],
+      tipoDocumentoNome: json['tipo_documento_nome'],
+      tipoDocumentoCategoria: json['tipo_documento_categoria'],
+      empresaNome: json['empresa_nome'],
+      colaboradorNome: json['colaborador_nome'],
       dataValidade: DateTime.parse(json['data_validade']),
       arquivoNome: json['arquivo_nome'],
       arquivoPath: json['arquivo_path'],
@@ -40,8 +52,8 @@ class Documento {
       ativo: json['ativo'] ?? true,
       versao: json['versao'] ?? 1,
       substituidoPorId: json['substituido_por_id'],
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
           : null,
     );
   }
@@ -52,6 +64,10 @@ class Documento {
       'colaborador_id': colaboradorId,
       'empresa_id': empresaId,
       'tipo_documento_id': tipoDocumentoId,
+      'tipo_documento_nome': tipoDocumentoNome,
+      'tipo_documento_categoria': tipoDocumentoCategoria,
+      'empresa_nome': empresaNome,
+      'colaborador_nome': colaboradorNome,
       'data_validade': dataValidade.toIso8601String(),
       'arquivo_nome': arquivoNome,
       'arquivo_path': arquivoPath,
