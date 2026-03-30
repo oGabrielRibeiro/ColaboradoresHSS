@@ -107,6 +107,26 @@ class ApiService {
     }
   }
 
+  static Future<List<Vinculo>> getVinculos({
+    int? colaboradorId,
+    int? empresaId,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/vinculos',
+        queryParameters: {
+          if (colaboradorId != null) 'colaborador_id': colaboradorId,
+          if (empresaId != null) 'empresa_id': empresaId,
+        },
+      );
+      return (response.data as List)
+          .map((json) => Vinculo.fromJson(json))
+          .toList();
+    } catch (e) {
+      throw Exception(_extractError(e, 'Falha ao carregar vínculos'));
+    }
+  }
+
   static Future<String> getSignedFileUrl(String arquivoPath) async {
     try {
       final response = await _dio.get(
@@ -143,19 +163,26 @@ class ApiService {
   static Future<PaginatedResponse<Empresa>> getEmpresas({
     int page = 1,
     int limit = 20,
+    String? search,
   }) async {
     try {
       final response = await _dio.get(
         '/empresas',
-        queryParameters: {'page': page, 'limit': limit},
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+          if (search != null) 'search': search,
+        },
       );
       final items = (response.data as List)
           .map((json) => Empresa.fromJson(json))
           .toList();
       final totalCount =
           int.tryParse(response.headers.value('x-total-count') ?? '0') ?? 0;
-
-      return PaginatedResponse(items: items, totalCount: totalCount);
+      
+      final hasMore = page * limit < totalCount;
+      return PaginatedResponse(
+          items: items, totalCount: totalCount, hasMore: hasMore);
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao carregar empresas'));
     }
@@ -182,6 +209,15 @@ class ApiService {
     }
   }
 
+  static Future<Empresa> getEmpresaById(int id) async {
+    try {
+      final response = await _dio.get('/empresas/$id');
+      return Empresa.fromJson(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao carregar empresa'));
+    }
+  }
+
   static Future<void> deleteEmpresa(int id) async {
     try {
       await _dio.delete('/empresas/$id');
@@ -193,11 +229,16 @@ class ApiService {
   static Future<PaginatedResponse<Colaborador>> getColaboradores({
     int page = 1,
     int limit = 20,
+    String? search,
   }) async {
     try {
       final response = await _dio.get(
         '/colaboradores',
-        queryParameters: {'page': page, 'limit': limit},
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+          if (search != null) 'search': search,
+        },
       );
       final items = (response.data as List)
           .map((json) => Colaborador.fromJson(json))
@@ -205,7 +246,9 @@ class ApiService {
       final totalCount =
           int.tryParse(response.headers.value('x-total-count') ?? '0') ?? 0;
 
-      return PaginatedResponse(items: items, totalCount: totalCount);
+      final hasMore = page * limit < totalCount;
+      return PaginatedResponse(
+          items: items, totalCount: totalCount, hasMore: hasMore);
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao carregar colaboradores'));
     }
@@ -290,7 +333,9 @@ class ApiService {
       final totalCount =
           int.tryParse(response.headers.value('x-total-count') ?? '0') ?? 0;
 
-      return PaginatedResponse(items: items, totalCount: totalCount);
+      final hasMore = page * limit < totalCount;
+      return PaginatedResponse(
+          items: items, totalCount: totalCount, hasMore: hasMore);
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao carregar documentos'));
     }
@@ -375,13 +420,14 @@ class ApiService {
   static Future<Map<String, dynamic>> uploadArquivo(
     FilePickerResult arquivo, {
     int? documentoId,
-    String? novaValidade,
+    String? novaValidade, // This is data_validade
+    String? observacoes,
   }) async {
     try {
       final file = arquivo.files.single;
       late MultipartFile multipartFile;
 
-      if (kIsWeb) {
+      if (kIsWeb && file.bytes != null) {
         multipartFile = MultipartFile.fromBytes(
           file.bytes!,
           filename: file.name,
@@ -395,12 +441,12 @@ class ApiService {
 
       final formData = FormData.fromMap({
         'arquivo': multipartFile,
-        if (documentoId != null) 'documentoId': documentoId,
-        if (novaValidade != null) 'novaValidade': novaValidade,
+        if (novaValidade != null) 'data_validade': novaValidade,
+        if (observacoes != null) 'observacoes': observacoes,
       });
 
       final response = await _dio.post(
-        documentoId != null ? '/documentos/substituir' : '/upload',
+        documentoId != null ? '/documentos/$documentoId/substituir' : '/upload',
         data: formData,
         options: Options(contentType: 'multipart/form-data'),
       );

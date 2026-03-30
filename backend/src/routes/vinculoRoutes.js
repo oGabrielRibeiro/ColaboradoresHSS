@@ -1,14 +1,19 @@
 const express = require("express");
+const router = express.Router();
 const {
   getVinculos,
   createVinculo,
   deleteVinculo,
-  getVinculoById,
 } = require("../controllers/vinculoController");
+const { protect } = require("../middleware/authMiddleware");
 
-const router = express.Router();
+// GET /api/vinculos?colaborador_id=X ou ?empresa_id=Y
+router.get("/", protect, getVinculos);
 
-router.route("/").get(getVinculos).post(createVinculo);
-router.route("/:id").get(getVinculoById).delete(deleteVinculo);
+// POST /api/vinculos
+router.post("/", protect, createVinculo);
+
+// DELETE /api/vinculos/:id
+router.delete("/:id", protect, deleteVinculo);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/models/empresa_model.dart';
+import 'package:go_router/go_router.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:frontend/theme/app_theme.dart';
 
@@ -55,7 +56,10 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
     });
 
     try {
-      final response = await ApiService.getEmpresas(page: _currentPage);
+      final response = await ApiService.getEmpresas(
+        page: _currentPage,
+        search: _searchController.text,
+      );
       setState(() {
         _empresas = response.items;
         _hasMore = response.hasMore;
@@ -78,7 +82,10 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
 
     try {
       _currentPage++;
-      final response = await ApiService.getEmpresas(page: _currentPage);
+      final response = await ApiService.getEmpresas(
+        page: _currentPage,
+        search: _searchController.text,
+      );
       setState(() {
         _empresas.addAll(response.items);
         _hasMore = response.hasMore;
@@ -269,18 +276,12 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final termo = _searchController.text.trim().toLowerCase();
     final width = MediaQuery.sizeOf(context).width;
     final cardsCrossAxisCount = width > 1100
         ? 3
         : width > 700
         ? 2
         : 1;
-    final empresasFiltradas = _empresas.where((empresa) {
-      return empresa.nome.toLowerCase().contains(termo) ||
-          (empresa.cnpj?.toLowerCase().contains(termo) ?? false) ||
-          (empresa.contato?.toLowerCase().contains(termo) ?? false);
-    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -329,7 +330,8 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _searchController,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) =>
+                        _carregarEmpresas(), // Trigger search on change
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search),
                       hintText: 'Buscar por nome, CNPJ ou contato',
@@ -386,19 +388,21 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                   childAspectRatio: 1.5, // Ajuste para o tamanho do card
                 ),
                 itemCount:
-                    empresasFiltradas.length +
+                    _empresas.length +
                     (_isLoadingMore
                         ? 1
                         : 0), // Adiciona 1 para o indicador de carregamento
                 itemBuilder: (context, index) {
-                  if (index == empresasFiltradas.length) {
+                  if (index == _empresas.length) {
                     return _buildLoadingMoreIndicator(); // Indicador de carregamento no final
                   }
                   return _EmpresaGridCard(
-                    empresa: empresasFiltradas[index],
-                    onEdit: () => _abrirFormulario(empresasFiltradas[index]),
-                    onDelete: () =>
-                        _confirmarExclusao(empresasFiltradas[index]),
+                    empresa: _empresas[index],
+                    onEdit: () => _abrirFormulario(_empresas[index]),
+                    onDelete: () => _confirmarExclusao(_empresas[index]),
+                    onTap: () => context.push(
+                      '/dashboard/empresas/${_empresas[index].id}',
+                    ),
                   );
                 },
               )
@@ -410,87 +414,89 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                     true, // Permite que o ListView se ajuste ao conteudo
                 physics:
                     const NeverScrollableScrollPhysics(), // Desabilita o scroll do ListView interno
-                itemCount: empresasFiltradas.length + (_isLoadingMore ? 1 : 0),
+                itemCount: _empresas.length + (_isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == empresasFiltradas.length) {
+                  if (index == _empresas.length) {
                     return _buildLoadingMoreIndicator();
                   }
-                  final empresa = empresasFiltradas[index];
+                  final empresa = _empresas[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        // TODO: Navegar para tela de detalhes da empresa
-                        // onTap: () => context.push('/dashboard/empresas/${empresa.id}'),
-                        // Adicionar onTap ao Card ou InkWell
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 52,
-                              height: 52,
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryBlue.withValues(
-                                  alpha: 0.12,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () =>
+                            context.push('/dashboard/empresas/${empresa.id}'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(18),
                                 ),
-                                borderRadius: BorderRadius.circular(18),
+                                child: const Icon(
+                                  Icons.apartment_rounded,
+                                  color: AppTheme.primaryBlue,
+                                ),
                               ),
-                              child: const Icon(
-                                Icons.apartment_rounded,
-                                color: AppTheme.primaryBlue,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      empresa.nome,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleMedium,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      empresa.cnpj?.isNotEmpty == true
+                                          ? 'CNPJ: ${empresa.cnpj}'
+                                          : 'CNPJ nao informado',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                    Text(
+                                      empresa.contato?.isNotEmpty == true
+                                          ? 'Contato: ${empresa.contato}'
+                                          : 'Contato nao informado',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    empresa.nome,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleMedium,
+                              PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  if (value == 'editar') {
+                                    _abrirFormulario(empresa);
+                                  } else if (value == 'excluir') {
+                                    _confirmarExclusao(empresa);
+                                  }
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: 'editar',
+                                    child: Text('Editar'),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    empresa.cnpj?.isNotEmpty == true
-                                        ? 'CNPJ: ${empresa.cnpj}'
-                                        : 'CNPJ nao informado',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  Text(
-                                    empresa.contato?.isNotEmpty == true
-                                        ? 'Contato: ${empresa.contato}'
-                                        : 'Contato nao informado',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                  PopupMenuItem(
+                                    value: 'excluir',
+                                    child: Text('Excluir'),
                                   ),
                                 ],
                               ),
-                            ),
-                            PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'editar') {
-                                  _abrirFormulario(empresa);
-                                } else if (value == 'excluir') {
-                                  _confirmarExclusao(empresa);
-                                }
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(
-                                  value: 'editar',
-                                  child: Text('Editar'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'excluir',
-                                  child: Text('Excluir'),
-                                ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -589,11 +595,13 @@ class _EmpresaGridCard extends StatelessWidget {
 
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onTap;
 
   const _EmpresaGridCard({
     required this.empresa,
     required this.onEdit,
     required this.onDelete,
+    required this.onTap,
   });
 
   @override
@@ -601,10 +609,7 @@ class _EmpresaGridCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        // TODO: Navegar para tela de detalhes da empresa
-        onTap: () {
-          // TODO: Navegar para tela de detalhes da empresa
-        },
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

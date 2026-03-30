@@ -7,33 +7,54 @@ const {
 
 const getVinculos = async (req, res) => {
   const colaboradorId = parseOptionalInt(req.query.colaborador_id);
+  const empresaId = parseOptionalInt(req.query.empresa_id);
+
+  const filters = [];
   const params = [];
-  let whereClause = "";
+
+  // Filtra apenas por vínculos ativos e não deletados
+  filters.push("v.ativo = true");
+  filters.push("v.deleted_at IS NULL");
+  filters.push("c.deleted_at IS NULL");
+  filters.push("e.deleted_at IS NULL");
 
   if (colaboradorId) {
     params.push(colaboradorId);
-    whereClause =
-      "WHERE v.colaborador_id = $1 AND v.ativo = true AND v.deleted_at IS NULL AND e.deleted_at IS NULL";
-  } else {
-    whereClause =
-      "WHERE v.ativo = true AND v.deleted_at IS NULL AND e.deleted_at IS NULL";
+    filters.push(`v.colaborador_id = $${params.length}`);
   }
 
+  if (empresaId) {
+    params.push(empresaId);
+    filters.push(`v.empresa_id = $${params.length}`);
+  }
+
+  const whereClause =
+    filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+
   try {
-    const result = await pool.query(
-      `SELECT
-           v.*,
-           e.nome AS empresa_nome,
-           e.cnpj AS empresa_cnpj
-         FROM vinculos v
-         INNER JOIN empresas e ON e.id = v.empresa_id
-         ${whereClause}
-         ORDER BY e.nome`,
-      params,
-    );
+    const query = `
+      SELECT
+        v.id,
+        v.colaborador_id,
+        c.nome as colaborador_nome,
+        v.empresa_id,
+        e.nome as empresa_nome,
+        v.data_inicio,
+        v.data_fim,
+        v.ativo
+      FROM vinculos v
+      INNER JOIN colaboradores c ON c.id = v.colaborador_id
+      INNER JOIN empresas e ON e.id = v.empresa_id
+      ${whereClause}
+      ORDER BY e.nome ASC
+    `;
+
+    const result = await pool.query(query, params);
+    // Retorna uma lista direta, sem paginação,
+    // pois a quantidade de vínculos por colaborador/empresa é geralmente pequena.
     res.json(result.rows);
   } catch (err) {
-    handleApiError(res, err, "Erro ao buscar vinculos");
+    handleApiError(res, err, "Erro ao buscar vínculos");
   }
 };
 
@@ -44,34 +65,33 @@ const createVinculo = async (req, res) => {
   if (!colaboradorId || !empresaId) {
     return handleApiError(
       res,
-      badRequest("Colaborador e empresa sao obrigatorios"),
+      badRequest("Colaborador e empresa são obrigatórios"),
     );
   }
 
   try {
+    // Verifica se o vínculo já existe e está ativo
     const existente = await pool.query(
-      `SELECT id
-         FROM vinculos
-         WHERE colaborador_id = $1
-           AND empresa_id = $2
-           AND ativo = true
-           AND deleted_at IS NULL`,
+      `SELECT id FROM vinculos
+       WHERE colaborador_id = $1 AND empresa_id = $2 AND ativo = true AND deleted_at IS NULL`,
       [colaboradorId, empresaId],
     );
 
     if (existente.rows.length > 0) {
       return res
         .status(409)
-        .json({ error: "Este colaborador ja esta vinculado a empresa" });
+        .json({ error: "Este vínculo já existe e está ativo." });
     }
 
     const result = await pool.query(
-      "INSERT INTO vinculos (colaborador_id, empresa_id) VALUES ($1, $2) RETURNING *",
+      `INSERT INTO vinculos (colaborador_id, empresa_id, ativo)
+       VALUES ($1, $2, true) RETURNING *`,
       [colaboradorId, empresaId],
     );
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    handleApiError(res, err, "Erro ao criar vinculo");
+    handleApiError(res, err, "Erro ao criar vínculo");
   }
 };
 
@@ -79,66 +99,23 @@ const deleteVinculo = async (req, res) => {
   const id = parseOptionalInt(req.params.id);
 
   if (!id) {
-    return handleApiError(res, badRequest("Vinculo invalido"));
-  }
-
-  try {
-    const dependencias = await pool.query(
-      `SELECT COUNT(*) FROM documentos WHERE vinculo_id = $1 AND ativo = true AND deleted_at IS NULL`,
-      [id],
-    );
-
-    if (dependencias.rows[0].count > 0) {
-      return res.status(409).json({
-        error:
-          "Nao e possivel excluir o vinculo porque existem documentos ativos associados",
-      });
-    }
-
-    const result = await pool.query(
-      "UPDATE vinculos SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id",
-      [id],
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Vinculo nao encontrado" });
-    }
-
-    res.json({ message: "Vinculo removido com sucesso" });
-  } catch (err) {
-    handleApiError(res, err, "Erro ao remover vinculo");
-  }
-};
-
-const getVinculoById = async (req, res) => {
-  const id = parseOptionalInt(req.params.id);
-
-  if (!id) {
-    return handleApiError(res, badRequest("Vinculo invalido"));
+    return handleApiError(res, badRequest("ID do vínculo é inválido"));
   }
 
   try {
     const result = await pool.query(
-      `SELECT
-         v.*,
-         e.nome AS empresa_nome,
-         e.cnpj AS empresa_cnpj,
-         c.nome AS colaborador_nome,
-         c.email AS colaborador_email
-       FROM vinculos v
-       INNER JOIN empresas e ON e.id = v.empresa_id
-       INNER JOIN colaboradores c ON c.id = v.colaborador_id
-       WHERE v.id = $1 AND v.deleted_at IS NULL`,
+      `UPDATE vinculos SET ativo = false, deleted_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
       [id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Vinculo nao encontrado" });
+      return res.status(404).json({ error: "Vínculo não encontrado" });
     }
 
-    res.json(result.rows[0]);
+    res.json({ message: "Vínculo removido com sucesso" });
   } catch (err) {
-    handleApiError(res, err, "Erro ao buscar vinculo");
+    handleApiError(res, err, "Erro ao remover vínculo");
   }
 };
 
@@ -146,5 +123,4 @@ module.exports = {
   getVinculos,
   createVinculo,
   deleteVinculo,
-  getVinculoById,
 };

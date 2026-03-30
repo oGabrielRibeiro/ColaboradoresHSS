@@ -3,6 +3,8 @@ class Colaborador {
   final String nome;
   final String? email;
   final String? telefone;
+  final String? cpf;
+  final String? cargo;
   final DateTime? createdAt;
 
   Colaborador({
@@ -10,6 +12,8 @@ class Colaborador {
     required this.nome,
     this.email,
     this.telefone,
+    this.cpf,
+    this.cargo,
     this.createdAt,
   });
 
@@ -19,6 +23,8 @@ class Colaborador {
       nome: json['nome'],
       email: json['email'],
       telefone: json['telefone'],
+      cpf: json['cpf'],
+      cargo: json['cargo'],
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : null,
@@ -31,6 +37,8 @@ class Colaborador {
       'nome': nome,
       'email': email,
       'telefone': telefone,
+      'cpf': cpf,
+      'cargo': cargo,
       'created_at': createdAt?.toIso8601String(),
     };
   }

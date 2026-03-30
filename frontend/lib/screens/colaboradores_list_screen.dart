@@ -57,7 +57,10 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
     });
 
     try {
-      final response = await ApiService.getColaboradores(page: _currentPage);
+      final response = await ApiService.getColaboradores(
+        page: _currentPage,
+        search: _searchController.text,
+      );
       setState(() {
         _colaboradores = response.items;
         _hasMore = response.hasMore;
@@ -80,7 +83,10 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
 
     try {
       _currentPage++;
-      final response = await ApiService.getColaboradores(page: _currentPage);
+      final response = await ApiService.getColaboradores(
+        page: _currentPage,
+        search: _searchController.text,
+      );
       setState(() {
         _colaboradores.addAll(response.items);
         _hasMore = response.hasMore;
@@ -276,13 +282,6 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final termo = _searchController.text.trim().toLowerCase();
-    final colaboradoresFiltrados = _colaboradores.where((colaborador) {
-      return colaborador.nome.toLowerCase().contains(termo) ||
-          (colaborador.email?.toLowerCase().contains(termo) ?? false) ||
-          (colaborador.telefone?.toLowerCase().contains(termo) ?? false);
-    }).toList();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Colaboradores'),
@@ -330,7 +329,8 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _searchController,
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) =>
+                        _carregarColaboradores(), // Trigger search on change
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search),
                       hintText: 'Buscar por nome, e-mail ou telefone',
@@ -390,23 +390,21 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
                   childAspectRatio: 1.2, // Ajustar conforme o conteudo
                 ),
                 itemCount:
-                    colaboradoresFiltrados.length +
+                    _colaboradores.length +
                     (_isLoadingMore
                         ? 1
                         : 0), // Adiciona 1 para o indicador de carregamento
                 itemBuilder: (context, index) {
-                  if (index == colaboradoresFiltrados.length) {
+                  if (index == _colaboradores.length) {
                     return _buildLoadingMoreIndicator(); // Indicador de carregamento no final
                   }
                   return _ColaboradorGridCard(
-                    colaborador: colaboradoresFiltrados[index],
-                    onEdit: () =>
-                        _abrirFormulario(colaboradoresFiltrados[index]),
-                    onDelete: () =>
-                        _confirmarExclusao(colaboradoresFiltrados[index]),
+                    colaborador: _colaboradores[index],
+                    onEdit: () => _abrirFormulario(_colaboradores[index]),
+                    onDelete: () => _confirmarExclusao(_colaboradores[index]),
                     onTap: () async {
                       context.push(
-                        '/dashboard/colaboradores/${colaboradoresFiltrados[index].id}',
+                        '/dashboard/colaboradores/${_colaboradores[index].id}',
                       );
                       await _carregarColaboradores();
                     },
@@ -421,13 +419,12 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
                     true, // Permite que o ListView se ajuste ao conteudo
                 physics:
                     const NeverScrollableScrollPhysics(), // Desabilita o scroll do ListView interno
-                itemCount:
-                    colaboradoresFiltrados.length + (_isLoadingMore ? 1 : 0),
+                itemCount: _colaboradores.length + (_isLoadingMore ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if (index == colaboradoresFiltrados.length) {
+                  if (index == _colaboradores.length) {
                     return _buildLoadingMoreIndicator();
                   }
-                  final colaborador = colaboradoresFiltrados[index];
+                  final colaborador = _colaboradores[index];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Card(

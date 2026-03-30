@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:frontend/screens/colaborador_detail_screen.dart'; // OBS: Assumindo que este é o arquivo e nome da tela de detalhes
+import 'package:frontend/screens/empresa_detail_screen.dart'; // Assumindo que este é o arquivo e nome da tela de detalhes da empresa
 import 'package:frontend/screens/colaboradores_list_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/documentos_status_screen.dart';
@@ -38,13 +40,31 @@ final GoRouter appRouter = GoRouter(
           path: 'empresas',
           builder: (BuildContext context, GoRouterState state) {
             return const EmpresasScreen();
-          },
+          }, // Rota para /dashboard/empresas
+          routes: <RouteBase>[
+            GoRoute(
+              path: ':id', // Rota para /dashboard/empresas/:id
+              builder: (BuildContext context, GoRouterState state) {
+                final id = int.parse(state.pathParameters['id']!);
+                return EmpresaDetailScreen(empresaId: id);
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: 'colaboradores',
           builder: (BuildContext context, GoRouterState state) {
             return const ColaboradoresListScreen();
-          },
+          }, // Rota para /dashboard/colaboradores
+          routes: <RouteBase>[
+            GoRoute(
+              path: ':id', // Rota para /dashboard/colaboradores/:id
+              builder: (BuildContext context, GoRouterState state) {
+                final id = int.parse(state.pathParameters['id']!);
+                return ColaboradorDetailScreen(colaboradorId: id);
+              },
+            ),
+          ],
         ),
         GoRoute(
           path: 'documentos/:status', // Exemplo: /dashboard/documentos/vencidos
