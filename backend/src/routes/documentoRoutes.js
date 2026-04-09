@@ -9,8 +9,12 @@ const {
   deleteDocumento,
 } = require("../controllers/documentoController");
 const upload = require("../middleware/upload");
+const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
+
+// PROTEGE TODAS AS ROTAS DE DOCUMENTO
+router.use(authMiddleware);
 
 router.route("/").get(getDocumentos).post(createDocumento);
 router

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:frontend/screens/colaborador_detail_screen.dart'; // OBS: Assumindo que este é o arquivo e nome da tela de detalhes
-import 'package:frontend/screens/empresa_detail_screen.dart'; // Assumindo que este é o arquivo e nome da tela de detalhes da empresa
+import 'package:frontend/screens/colaborador_detail_screen.dart';
+import 'package:frontend/screens/empresa_detail_screen.dart';
 import 'package:frontend/screens/colaboradores_list_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/documentos_status_screen.dart';
 import 'package:frontend/screens/empresas_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
+import 'package:frontend/screens/test_documento_screen.dart';
 import 'package:frontend/services/api_service.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -63,6 +64,15 @@ final GoRouter appRouter = GoRouter(
                 final id = int.parse(state.pathParameters['id']!);
                 return ColaboradorDetailScreen(colaboradorId: id);
               },
+              routes: <RouteBase>[
+                GoRoute(
+                  path: 'criar-documento', // Rota para /dashboard/colaboradores/:id/criar-documento
+                  builder: (BuildContext context, GoRouterState state) {
+                    final id = int.parse(state.pathParameters['id']!);
+                    return TestDocumentoScreen(colaboradorId: id);
+                  },
+                ),
+              ],
             ),
           ],
         ),

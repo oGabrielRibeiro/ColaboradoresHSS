@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:frontend/models/empresa.dart';
 import 'package:frontend/services/api_service.dart';
 
-class EmpresasScreen extends StatefulWidget {
-  const EmpresasScreen({super.key});
+class EmpresasListScreen extends StatefulWidget {
+  const EmpresasListScreen({super.key});
 
   @override
-  State<EmpresasScreen> createState() => _EmpresasScreenState();
+  State<EmpresasListScreen> createState() => _EmpresasListScreenState();
 }
 
-class _EmpresasScreenState extends State<EmpresasScreen> {
+class _EmpresasListScreenState extends State<EmpresasListScreen> {
   List<Empresa> _empresas = [];
   bool _isLoading = true;
 
@@ -22,7 +22,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
   Future<void> _carregarEmpresas() async {
     setState(() { _isLoading = true; });
     try {
-      final empresas = await ApiService.getEmpresas();
+      final empresas = await ApiService.getEmpresas(); // Assume que existe
       setState(() { _empresas = empresas; _isLoading = false; });
     } catch (e) {
       setState(() { _isLoading = false; });
@@ -34,7 +34,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
 
   Future<void> _criarEmpresa(String nome) async {
     try {
-      final empresa = await ApiService.createEmpresa({'nome': nome});
+      final empresa = await ApiService.createEmpresa({'nome': nome}); // Assume que existe
       setState(() { _empresas.add(empresa); });
       if (mounted) Navigator.pop(context);
     } catch (e) {

@@ -1,219 +1,3 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-// OBS: Os models `Colaborador` e `Vinculo` precisam ser criados. O código
-// abaixo assume que eles existem.
-import 'package:frontend/models/colaborador_model.dart';
-import 'package:frontend/models/documento_model.dart';
-import 'package:frontend/models/vinculo_model.dart';
-import 'package:frontend/models/paginated_response.dart';
-
-import 'package:frontend/services/api_service.dart';
-import 'package:frontend/widgets/documento_card.dart';
-
-class ColaboradorDetailScreen extends StatefulWidget {
-  final int colaboradorId;
-  const ColaboradorDetailScreen({super.key, required this.colaboradorId});
-
-  @override
-  State<ColaboradorDetailScreen> createState() =>
-      _ColaboradorDetailScreenState();
-}
-
-class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
-  // OBS: Assumindo que ApiService terá os métodos getColaboradorById e getVinculos.
-  Colaborador? _colaborador;
-  List<Documento> _documentos = [];
-  List<Vinculo> _vinculos = [];
-  bool _isLoading = true;
-  String _errorMessage = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _carregarDados();
-  }
-
-  Future<void> _carregarDados() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    try {
-      // Carrega todos os dados em paralelo para melhor performance
-      final resultados = await Future.wait([
-        ApiService.getColaboradorById(widget.colaboradorId),
-        ApiService.getVinculos(colaboradorId: widget.colaboradorId),
-        ApiService.getDocumentos(
-          colaboradorId: widget.colaboradorId,
-          limit: 100, // TODO: Implementar paginação
-        ),
-      ]);
-
-      setState(() {
-        _colaborador = resultados[0] as Colaborador;
-        _vinculos = resultados[1] as List<Vinculo>;
-        // O ApiService.getDocumentos retorna um PaginatedResponse.
-        _documentos = (resultados[2] as PaginatedResponse<Documento>).items;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      });
-    }
-  }
-
-  Future<void> _abrirArquivo(String? arquivoPath) async {
-    if (arquivoPath == null || arquivoPath.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Arquivo não disponível')));
-      return;
-    }
-
-    try {
-      final signedUrl = await ApiService.getSignedFileUrl(arquivoPath);
-      final url = Uri.parse(signedUrl);
-      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Não foi possível abrir o arquivo')),
-          );
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_colaborador?.nome ?? 'Detalhes do Colaborador'),
-        actions: [
-          // TODO: Adicionar ações como "Editar Colaborador" ou "Adicionar Documento"
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
-        ],
-      ),
-      body: RefreshIndicator(onRefresh: _carregarDados, child: _buildBody()),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage.isNotEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_errorMessage, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _carregarDados,
-                child: const Text('Tentar Novamente'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildColaboradorHeader(),
-        const SizedBox(height: 24),
-        _buildVinculosSection(),
-        const SizedBox(height: 24),
-        _buildDocumentosSection(),
-      ],
-    );
-  }
-
-  Widget _buildColaboradorHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _colaborador!.nome,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          if (_colaborador!.cargo != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              _colaborador!.cargo!,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
-            ),
-          ],
-          const SizedBox(height: 16),
-          if (_colaborador!.cpf?.isNotEmpty == true)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('CPF'),
-              subtitle: Text(_colaborador!.cpf!),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVinculosSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Empresas Vinculadas',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 12),
-        if (_vinculos.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Center(child: Text('Nenhum vínculo com empresas.')),
-            ),
-          )
-        else
-          Wrap(
-            spacing: 8.0,
-            runSpacing: 4.0,
-            children: _vinculos.map((vinculo) {
-              return ActionChip(
-                avatar: Icon(Icons.business_center_outlined, size: 18),
-                label: Text(vinculo.empresaNome ?? 'Empresa não informada'),
-                onPressed: () =>
-                    context.go('/dashboard/empresas/${vinculo.empresaId}'),
-              );
-            }).toList(),
-          ),
-      ],
-    );
-  }
-
   Widget _buildDocumentosSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,10 +22,113 @@ class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
               return DocumentoCard(
                 documento: doc,
                 onOpen: () => _abrirArquivo(doc.arquivoPath),
+                onReplace: () => _substituirDocumento(doc),
               );
             },
           ),
       ],
     );
   }
-}
+
+  Future<void> _substituirDocumento(Documento doc) async {
+    DateTime? novaData;
+    FilePickerResult? arquivoResult;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Substituir Documento', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 16),
+                // Data de validade
+                ListTile(
+                  leading: const Icon(Icons.calendar_today),
+                  title: Text(novaData == null
+                    ? 'Selecionar nova data*'
+                    : 'Data: ${DateFormat('dd/MM/yyyy').format(novaData!)}'),
+                  onTap: () async {
+                    final data = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                      locale: const Locale('pt', 'BR'),
+                    );
+                    if (data != null) setState(() => novaData = data);
+                  },
+                ),
+                const SizedBox(height: 8),
+                // Arquivo
+                ListTile(
+                  leading: const Icon(Icons.attach_file),
+                  title: Text(arquivoResult?.files.single.name ?? 'Selecionar arquivo*'),
+                  onTap: () async {
+                    final result = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png'],
+                      allowMultiple: false,
+                    );
+                    if (result != null) setState(() => arquivoResult = result);
+                  },
+                ),
+                const SizedBox(height: 16),
+                // Botões
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: (novaData != null && arquivoResult != null)
+                          ? () async {
+                              try {
+                                await ApiService.uploadArquivo(
+                                  arquivoResult!,
+                                  documentoId: doc.id,
+                                  novaValidade: novaData!.toIso8601String(),
+                                );
+                                if (mounted) {
+                                  Navigator.pop(context, true);
+                                  _carregarDados();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Documento substituído com sucesso!')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  Navigator.pop(context, false);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Erro ao substituir: ${e.toString()}')),
+                                  );
+                                }
+                              }
+                            }
+                          : null,
+                        child: const Text('Substituir'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    if (result == true) {
+      _carregarDados();
+    }
+  }
