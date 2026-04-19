@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:frontend/models/documento_model.dart';
-import 'package:frontend/models/tipo_documento.dart';
+import 'package:frontend/models/tipo_documento_model.dart';
 import 'package:frontend/models/vinculo_model.dart';
 import 'package:frontend/services/api_service.dart';
 
@@ -251,7 +251,7 @@ class _TestDocumentoScreenState extends State<TestDocumentoScreen> {
                       labelText: 'Tipo de Documento *',
                       prefixIcon: Icon(Icons.description),
                       border: OutlineInputBorder(),
-                    ),n                    value: _tipoDocumentoIdSelecionado,
+                    ),                    initialValue: _tipoDocumentoIdSelecionado,
                     items: _tiposDocumento.map((tipo) {
                       return DropdownMenuItem(
                         value: tipo.id,
@@ -275,12 +275,12 @@ class _TestDocumentoScreenState extends State<TestDocumentoScreen> {
                           .firstWhere((t) => t.id == _tipoDocumentoIdSelecionado)
                           .tipo ==
                           'empresa') ...[
-                    DropdownButtonFormField<int>(n                      decoration: const InputDecoration(
+                    DropdownButtonFormField<int>(                     decoration: const InputDecoration(
                         labelText: 'Empresa *',
                         prefixIcon: Icon(Icons.business),
                         border: OutlineInputBorder(),
                       ),
-                      value: _empresaIdSelecionado,
+                      initialValue: _empresaIdSelecionado,
                       items: _vinculos.map((vinculo) {
                         return DropdownMenuItem(
                           value: vinculo.empresaId,

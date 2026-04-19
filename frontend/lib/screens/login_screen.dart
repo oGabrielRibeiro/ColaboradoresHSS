@@ -80,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(
                     Icons.business_center,
                     size: 64,
-                    color: AppTheme.primary,
+                    color: AppTheme.primaryGreen,
                   ),
                   const SizedBox(height: 32),
 
@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primary,
+                      color: AppTheme.primaryGreen,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -104,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Campo Email
                   TextFormField(
                     controller: _emailController,
-                    keyboardType: TextInputType.email,
+                    keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     decoration: InputDecoration(
                       labelText: 'Email',
@@ -199,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     child: Text(
                       'Esqueceu a senha?',
-                      style: TextStyle(color: AppTheme.primary),
+                      style: TextStyle(color: AppTheme.primaryGreen),
                     ),
                   ),
                 ],

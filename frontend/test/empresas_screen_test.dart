@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/screens/empresas_screen.dart';
-import 'package:frontend/models/empresa.dart';
-import 'package:frontend/services/api_service.dart';
-import 'package:file_picker/file_picker.dart';
 
 void main() {
   testWidgets('Criar empresa - fluxo completo', (WidgetTester tester) async {

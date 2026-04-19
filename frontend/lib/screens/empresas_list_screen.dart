@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/models/empresa.dart';
+import 'package:frontend/models/empresa_model.dart';
 import 'package:frontend/services/api_service.dart';
+import 'package:go_router/go_router.dart';
 
 class EmpresasListScreen extends StatefulWidget {
   const EmpresasListScreen({super.key});
@@ -22,25 +23,29 @@ class _EmpresasListScreenState extends State<EmpresasListScreen> {
   Future<void> _carregarEmpresas() async {
     setState(() { _isLoading = true; });
     try {
-      final empresas = await ApiService.getEmpresas(); // Assume que existe
-      setState(() { _empresas = empresas; _isLoading = false; });
+      final response = await ApiService.getEmpresas(); // Assume que existe
+      setState(() { _empresas = response.items; _isLoading = false; });
     } catch (e) {
       setState(() { _isLoading = false; });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: ${e.toString()}'))
       );
+      }
     }
   }
 
   Future<void> _criarEmpresa(String nome) async {
     try {
-      final empresa = await ApiService.createEmpresa({'nome': nome}); // Assume que existe
+      final empresa = await ApiService.createEmpresa(nome); // Assume que existe
       setState(() { _empresas.add(empresa); });
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: ${e.toString()}'))
       );
+      }
     }
   }
 
@@ -131,7 +136,7 @@ class _EmpresasListScreenState extends State<EmpresasListScreen> {
                         trailing: IconButton(
                           icon: const Icon(Icons.arrow_forward_ios, size: 16),
                           onPressed: () {
-                            context.push('/dashboard/empresas/${empresa.id}');
+                            GoRouter.of(context).push('/dashboard/empresas/${empresa.id}');
                           },
                         ),
                       ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/models/empresa.dart';
+import 'package:go_router/go_router.dart';
+import 'package:frontend/models/empresa_model.dart';
+import 'package:go_router/go_router.dart';
 import 'package:frontend/services/api_service.dart';
 
 class EmpresasScreen extends StatefulWidget {
@@ -22,25 +24,29 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
   Future<void> _carregarEmpresas() async {
     setState(() { _isLoading = true; });
     try {
-      final empresas = await ApiService.getEmpresas();
-      setState(() { _empresas = empresas; _isLoading = false; });
+      final response = await ApiService.getEmpresas();
+      setState(() { _empresas = response.items; _isLoading = false; });
     } catch (e) {
       setState(() { _isLoading = false; });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: ${e.toString()}'))
       );
+      }
     }
   }
 
   Future<void> _criarEmpresa(String nome) async {
     try {
-      final empresa = await ApiService.createEmpresa({'nome': nome});
+      final empresa = await ApiService.createEmpresa(nome);
       setState(() { _empresas.add(empresa); });
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: ${e.toString()}'))
       );
+      }
     }
   }
 

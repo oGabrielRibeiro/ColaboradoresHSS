@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:frontend/models/documento_model.dart';
 import 'package:frontend/models/empresa_model.dart';
 import 'package:frontend/services/api_service.dart';
-import 'package:frontend/models/paginated_response.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend/widgets/documento_card.dart';
 

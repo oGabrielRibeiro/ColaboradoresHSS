@@ -4,7 +4,15 @@
       "Bash(docker-compose ps:*)",
       "Bash(npm test:*)",
       "Bash(npm install:*)",
-      "Bash(chmod +x C:\\\\Cliente\\\\HSS\\\\ColaboradoresHSS\\\\start.sh)"
+      "Bash(chmod +x C:\\\\Cliente\\\\HSS\\\\ColaboradoresHSS\\\\start.sh)",
+      "Bash(sed -i \"254s/\\),n /\\), /\" \"C:\\\\Cliente\\\\HSS\\\\ColaboradoresHSS\\\\frontend\\\\lib\\\\screens\\\\test_documento_screen.dart\")",
+      "Bash(sed -i \"278s/\\(n /\\(/\" \"C:\\\\Cliente\\\\HSS\\\\ColaboradoresHSS\\\\frontend\\\\lib\\\\screens\\\\test_documento_screen.dart\")",
+      "Bash(sed -i \"26s/final empresas = await ApiService.getEmpresas\\(\\)/final response = await ApiService.getEmpresas\\(\\)/\" \"C:/Cliente/HSS/ColaboradoresHSS/frontend/lib/screens/empresas_screen.dart\")",
+      "Bash(sed -i \"27s/_empresas = empresas;/_empresas = response.items;/\" \"C:/Cliente/HSS/ColaboradoresHSS/frontend/lib/screens/empresas_screen.dart\")",
+      "Bash(sed -i \"25s/final empresas = await ApiService.getEmpresas\\(\\)/final response = await ApiService.getEmpresas\\(\\)/\" \"C:/Cliente/HSS/ColaboradoresHSS/frontend/lib/screens/empresas_list_screen.dart\")",
+      "Bash(sed -i \"27s/_empresas = empresas;/_empresas = response.items;/\" \"C:/Cliente/HSS/ColaboradoresHSS/frontend/lib/screens/empresas_list_screen.dart\")",
+      "Bash(flutter analyze:*)",
+      "Bash(> \"C:/Cliente/HSS/ColaboradoresHSS/frontend/lib/screens/colaborador_detail_screen.dart\")"
     ]
   }
 }
