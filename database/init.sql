@@ -70,6 +70,24 @@ CREATE TABLE IF NOT EXISTS notificacoes_enviadas (
 
 CREATE INDEX IF NOT EXISTS idx_notificacoes_documento_id ON notificacoes_enviadas(documento_id);
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER,
+    user_email VARCHAR(160),
+    user_nome VARCHAR(120),
+    action VARCHAR(60) NOT NULL,
+    entity_type VARCHAR(60) NOT NULL,
+    entity_id VARCHAR(80),
+    metadata JSONB,
+    ip_address VARCHAR(64),
+    user_agent VARCHAR(255),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+
 INSERT INTO tipos_documento (nome, tipo) VALUES 
 ('RG', 'pessoal'),
 ('CPF', 'pessoal'),

@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: colaboradores_hss_db_prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app_network_prod
+
+  backend:
+    build: ./backend
+    container_name: colaboradores_hss_backend_prod
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME}
+      PORT: 3000
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      FILE_LINK_EXPIRES_IN: ${FILE_LINK_EXPIRES_IN}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      API_RATE_LIMIT_WINDOW_MS: ${API_RATE_LIMIT_WINDOW_MS}
+      API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX}
+      CRON_NOTIFY_SCHEDULE: ${CRON_NOTIFY_SCHEDULE}
+      NOTIFY_DAYS_AHEAD: ${NOTIFY_DAYS_AHEAD}
+      NOTIFY_RUN_ON_START: ${NOTIFY_RUN_ON_START}
+      RH_DEFAULT_NOME: ${RH_DEFAULT_NOME}
+      RH_DEFAULT_EMAIL: ${RH_DEFAULT_EMAIL}
+      RH_DEFAULT_PASSWORD: ${RH_DEFAULT_PASSWORD}
+    volumes:
+      - uploads_data_prod:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health | grep -q ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app_network_prod
+
+volumes:
+  postgres_data_prod:
+  uploads_data_prod:
+
+networks:
+  app_network_prod:
+    driver: bridge

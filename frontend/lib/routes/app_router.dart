@@ -5,8 +5,10 @@ import 'package:frontend/screens/empresa_detail_screen.dart'; // Assumindo que e
 import 'package:frontend/screens/colaboradores_list_screen.dart';
 import 'package:frontend/screens/dashboard_screen.dart';
 import 'package:frontend/screens/documentos_status_screen.dart';
+import 'package:frontend/screens/documento_create_screen.dart';
 import 'package:frontend/screens/empresas_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
+import 'package:frontend/screens/tipos_documento_screen.dart';
 import 'package:frontend/services/api_service.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -65,6 +67,21 @@ final GoRouter appRouter = GoRouter(
               },
             ),
           ],
+        ),
+        GoRoute(
+          path: 'documentos/novo',
+          builder: (BuildContext context, GoRouterState state) {
+            final colaboradorIdParam =
+                state.uri.queryParameters['colaborador_id'];
+            final colaboradorId = int.tryParse(colaboradorIdParam ?? '');
+            return DocumentoCreateScreen(colaboradorIdInicial: colaboradorId);
+          },
+        ),
+        GoRoute(
+          path: 'tipos-documento',
+          builder: (BuildContext context, GoRouterState state) {
+            return const TiposDocumentoScreen();
+          },
         ),
         GoRoute(
           path: 'documentos/:status', // Exemplo: /dashboard/documentos/vencidos

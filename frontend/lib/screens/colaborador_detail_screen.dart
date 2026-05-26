@@ -22,12 +22,143 @@ class ColaboradorDetailScreen extends StatefulWidget {
 }
 
 class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
-  // OBS: Assumindo que ApiService terá os métodos getColaboradorById e getVinculos.
+  static const int _documentosPageSize = 20;
+
   Colaborador? _colaborador;
   List<Documento> _documentos = [];
   List<Vinculo> _vinculos = [];
   bool _isLoading = true;
+  bool _isLoadingMoreDocumentos = false;
+  bool _hasMoreDocumentos = true;
+  int _documentosPage = 1;
   String _errorMessage = '';
+
+  Future<void> _abrirDialogVincularEmpresa() async {
+    try {
+      final empresasResponse = await ApiService.getEmpresas(limit: 1000);
+      final idsVinculados = _vinculos.map((item) => item.empresaId).toSet();
+      final disponiveis = empresasResponse.items
+          .where(
+            (empresa) =>
+                empresa.id != null && !idsVinculados.contains(empresa.id),
+          )
+          .toList()
+        ..sort((a, b) => a.nome.compareTo(b.nome));
+
+      if (!mounted) return;
+
+      if (disponiveis.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Todas as empresas já estão vinculadas.')),
+        );
+        return;
+      }
+
+      int? empresaSelecionadaId;
+
+      final empresaId = await showDialog<int>(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setStateDialog) => AlertDialog(
+            title: const Text('Vincular empresa'),
+            content: SizedBox(
+              width: 420,
+              child: DropdownButtonFormField<int>(
+                initialValue: empresaSelecionadaId,
+                decoration: const InputDecoration(
+                  labelText: 'Empresa',
+                  hintText: 'Selecione uma empresa',
+                ),
+                items: disponiveis.map((empresa) {
+                  return DropdownMenuItem<int>(
+                    value: empresa.id,
+                    child: Text(empresa.nome),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setStateDialog(() => empresaSelecionadaId = value);
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: empresaSelecionadaId == null
+                    ? null
+                    : () => Navigator.pop(context, empresaSelecionadaId),
+                child: const Text('Vincular'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (empresaId == null) {
+        return;
+      }
+
+      await ApiService.createVinculo(
+        Vinculo(colaboradorId: widget.colaboradorId, empresaId: empresaId),
+      );
+      await _carregarDados();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Empresa vinculada com sucesso')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
+
+  Future<void> _desvincularEmpresa(Vinculo vinculo) async {
+    if (vinculo.id == null) {
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remover vínculo'),
+        content: Text(
+          'Deseja remover o vínculo com "${vinculo.empresaNome ?? 'esta empresa'}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remover'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true) {
+      return;
+    }
+
+    try {
+      await ApiService.deleteVinculo(vinculo.id!);
+      await _carregarDados();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vínculo removido com sucesso')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -48,15 +179,19 @@ class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
         ApiService.getVinculos(colaboradorId: widget.colaboradorId),
         ApiService.getDocumentos(
           colaboradorId: widget.colaboradorId,
-          limit: 100, // TODO: Implementar paginação
+          page: 1,
+          limit: _documentosPageSize,
         ),
       ]);
 
       setState(() {
         _colaborador = resultados[0] as Colaborador;
         _vinculos = resultados[1] as List<Vinculo>;
-        // O ApiService.getDocumentos retorna um PaginatedResponse.
-        _documentos = (resultados[2] as PaginatedResponse<Documento>).items;
+        final documentosResponse = resultados[2] as PaginatedResponse<Documento>;
+        _documentos = documentosResponse.items;
+        _documentosPage = 1;
+        _hasMoreDocumentos = documentosResponse.hasMore;
+        _isLoadingMoreDocumentos = false;
         _isLoading = false;
       });
     } catch (e) {
@@ -64,6 +199,34 @@ class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
         _isLoading = false;
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
+    }
+  }
+
+  Future<void> _carregarMaisDocumentos() async {
+    if (_isLoadingMoreDocumentos || !_hasMoreDocumentos) {
+      return;
+    }
+
+    setState(() => _isLoadingMoreDocumentos = true);
+    try {
+      final nextPage = _documentosPage + 1;
+      final response = await ApiService.getDocumentos(
+        colaboradorId: widget.colaboradorId,
+        page: nextPage,
+        limit: _documentosPageSize,
+      );
+      setState(() {
+        _documentos.addAll(response.items);
+        _documentosPage = nextPage;
+        _hasMoreDocumentos = response.hasMore;
+        _isLoadingMoreDocumentos = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingMoreDocumentos = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
     }
   }
 
@@ -99,8 +262,33 @@ class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
       appBar: AppBar(
         title: Text(_colaborador?.nome ?? 'Detalhes do Colaborador'),
         actions: [
-          // TODO: Adicionar ações como "Editar Colaborador" ou "Adicionar Documento"
-          IconButton(icon: const Icon(Icons.more_vert), onPressed: () {}),
+          PopupMenuButton<String>(
+            onSelected: (value) async {
+              if (value == 'recarregar') {
+                await _carregarDados();
+                return;
+              }
+              if (!mounted) return;
+              if (value == 'editar') {
+                context.go('/dashboard/colaboradores');
+              } else if (value == 'adicionar_documento') {
+                context.go(
+                  '/dashboard/documentos/novo?colaborador_id=${widget.colaboradorId}',
+                );
+              }
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'recarregar', child: Text('Recarregar')),
+              PopupMenuItem(
+                value: 'editar',
+                child: Text('Editar colaborador (lista)'),
+              ),
+              PopupMenuItem(
+                value: 'adicionar_documento',
+                child: Text('Adicionar documento (atalho)'),
+              ),
+            ],
+          ),
         ],
       ),
       body: RefreshIndicator(onRefresh: _carregarDados, child: _buildBody()),
@@ -185,9 +373,28 @@ class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Empresas Vinculadas',
-          style: Theme.of(context).textTheme.titleLarge,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Empresas Vinculadas',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: _abrirDialogVincularEmpresa,
+              icon: const Icon(Icons.link_rounded),
+              label: const Text('Vincular'),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: () => context.push(
+                '/dashboard/documentos/novo?colaborador_id=${widget.colaboradorId}',
+              ),
+              icon: const Icon(Icons.upload_file_rounded),
+              label: const Text('Novo documento'),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         if (_vinculos.isEmpty)
@@ -202,11 +409,13 @@ class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
             spacing: 8.0,
             runSpacing: 4.0,
             children: _vinculos.map((vinculo) {
-              return ActionChip(
-                avatar: Icon(Icons.business_center_outlined, size: 18),
+              return InputChip(
+                avatar: const Icon(Icons.business_center_outlined, size: 18),
                 label: Text(vinculo.empresaNome ?? 'Empresa não informada'),
                 onPressed: () =>
                     context.go('/dashboard/empresas/${vinculo.empresaId}'),
+                onDeleted: () => _desvincularEmpresa(vinculo),
+                deleteIcon: const Icon(Icons.close_rounded, size: 18),
               );
             }).toList(),
           ),
@@ -228,18 +437,42 @@ class _ColaboradorDetailScreenState extends State<ColaboradorDetailScreen> {
             ),
           )
         else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _documentos.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final doc = _documentos[index];
-              return DocumentoCard(
-                documento: doc,
-                onOpen: () => _abrirArquivo(doc.arquivoPath),
-              );
-            },
+          Column(
+            children: [
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _documentos.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final doc = _documentos[index];
+                  return DocumentoCard(
+                    documento: doc,
+                    onOpen: () => _abrirArquivo(doc.arquivoPath),
+                  );
+                },
+              ),
+              if (_hasMoreDocumentos) ...[
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: _isLoadingMoreDocumentos
+                      ? null
+                      : _carregarMaisDocumentos,
+                  icon: _isLoadingMoreDocumentos
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.expand_more_rounded),
+                  label: Text(
+                    _isLoadingMoreDocumentos
+                        ? 'Carregando...'
+                        : 'Carregar mais documentos',
+                  ),
+                ),
+              ],
+            ],
           ),
       ],
     );

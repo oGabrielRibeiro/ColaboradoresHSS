@@ -122,6 +122,32 @@ async function ensureSchemaUpdates() {
     await pool.query(
       `CREATE INDEX IF NOT EXISTS idx_colab_deleted_at ON colaboradores(deleted_at)`,
     );
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        user_email VARCHAR(160),
+        user_nome VARCHAR(120),
+        action VARCHAR(60) NOT NULL,
+        entity_type VARCHAR(60) NOT NULL,
+        entity_id VARCHAR(80),
+        metadata JSONB,
+        ip_address VARCHAR(64),
+        user_agent VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC)`,
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id)`,
+    );
+    await pool.query(
+      `CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`,
+    );
   } catch (err) {
     console.error("Erro ao aplicar atualizacoes de schema (Soft Delete):", err);
   }

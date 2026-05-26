@@ -26,8 +26,13 @@ const {
 } = require("./src/config/bootstrap");
 const authMiddleware = require("./src/middleware/auth");
 const { apiLimiter, authLimiter } = require("./src/middleware/rateLimit"); // <--- ADD THIS LINE
-const { iniciarJobNotificacoesVencimento } = require("./src/controllers/cronController");
-const { generateFileAccessToken } = require("./src/controllers/uploadController"); // Assuming this helper is moved there
+const {
+  iniciarJobNotificacoesVencimento,
+} = require("./src/controllers/cronController");
+const {
+  generateFileAccessToken,
+  verifyFileAccessToken,
+} = require("./src/controllers/uploadController"); // Assuming this helper is moved there
 
 // Import routes
 const authRoutes = require("./src/routes/authRoutes");
@@ -38,6 +43,8 @@ const tipoDocumentoRoutes = require("./src/routes/tipoDocumentoRoutes");
 const documentoRoutes = require("./src/routes/documentoRoutes");
 const vinculoRoutes = require("./src/routes/vinculoRoutes");
 const uploadRoutes = require("./src/routes/uploadRoutes");
+const auditRoutes = require("./src/routes/auditRoutes");
+const relatorioRoutes = require("./src/routes/relatorioRoutes");
 
 dotenv.config();
 
@@ -50,6 +57,8 @@ const corsOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
+
+app.use("/uploads", express.static(uploadsDir));
 
 app.use(express.json());
 app.use(
@@ -107,9 +116,6 @@ app.get("/uploads/:filename", (req, res) => {
   return res.sendFile(filePath);
 });
 
-app.use("/auth", authLimiter, authRoutes); // Apply authLimiter only to auth routes
-app.use(authMiddleware); // Apply authMiddleware to all subsequent routes
-
 app.get("/arquivos/link", async (req, res) => {
   const requestedPath = sanitizeText(req.query.path);
   if (!requestedPath) {
@@ -118,15 +124,23 @@ app.get("/arquivos/link", async (req, res) => {
   const filename = path.basename(requestedPath);
   const absolutePath = path.join(uploadsDir, filename);
 
+  console.log("requestedPath:", requestedPath);
+  console.log("filename:", filename);
+  console.log("absolutePath:", absolutePath);
+  console.log("arquivoExiste:", fs.existsSync(absolutePath));
+  console.log("uploadsDir:", uploadsDir);
+
   if (!absolutePath.startsWith(uploadsDir) || !fs.existsSync(absolutePath)) {
     return res.status(404).json({ error: "Arquivo nao encontrado" });
   }
-  const fileToken = generateFileAccessToken(filename);
   const encodedFilename = encodeURIComponent(filename);
-  const signedUrl = `${req.protocol}://${req.get("host")}/uploads/${encodedFilename}?token=${fileToken}`;
+  const signedUrl = `${req.protocol}://${req.get("host")}/uploads/${encodedFilename}`;
 
   return res.json({ url: signedUrl });
 });
+
+app.use("/auth", authLimiter, authRoutes); // Apply authLimiter only to auth routes
+app.use(authMiddleware); // Apply authMiddleware to all subsequent routes
 
 app.use("/dashboard", dashboardRoutes);
 app.use("/colaboradores", colaboradorRoutes);
@@ -135,6 +149,8 @@ app.use("/tipos-documento", tipoDocumentoRoutes);
 app.use("/documentos", documentoRoutes);
 app.use("/vinculos", vinculoRoutes);
 app.use("/upload", uploadRoutes);
+app.use("/audit-logs", auditRoutes);
+app.use("/relatorios", relatorioRoutes);
 
 async function startServer() {
   await waitForDatabase();

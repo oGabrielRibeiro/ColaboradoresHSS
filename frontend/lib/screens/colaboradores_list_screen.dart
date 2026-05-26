@@ -295,7 +295,6 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        // TODO: Mover para um widget de acoes rapidas
         onPressed: _abrirFormulario,
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Novo colaborador'),
@@ -368,7 +367,10 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
                       ),
                     )
             else if (_errorMessage.isNotEmpty && _colaboradores.isEmpty)
-              Center(child: Text(_errorMessage)) // TODO: Usar _ErrorState
+              _ErrorState(
+                message: _errorMessage,
+                onRetry: _carregarColaboradores,
+              )
             else if (_colaboradores.isEmpty) // Estado vazio
               const _EmptyState(
                 title: 'Nenhum colaborador encontrado',
@@ -617,6 +619,44 @@ class _ColaboradorGridCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final Future<void> Function() onRetry;
+
+  const _ErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 36,
+              color: AppTheme.danger,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Tentar novamente'),
+            ),
+          ],
         ),
       ),
     );

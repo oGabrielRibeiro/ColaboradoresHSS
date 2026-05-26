@@ -5,6 +5,7 @@ const {
   handleApiError,
   badRequest,
 } = require("../utils/helpers");
+const { logAudit } = require("../utils/auditLogger");
 
 const getColaboradores = async (req, res) => {
   const page = parseOptionalInt(req.query.page) || 1;
@@ -111,6 +112,13 @@ const createColaborador = async (req, res) => {
       "INSERT INTO colaboradores (nome, email, telefone) VALUES ($1, $2, $3) RETURNING *",
       [nome, email, telefone],
     );
+    await logAudit({
+      req,
+      action: "colaborador.create",
+      entityType: "colaborador",
+      entityId: result.rows[0].id,
+      metadata: { nome, email, telefone },
+    });
     res.status(201).json(result.rows[0]);
   } catch (err) {
     handleApiError(res, err, "Erro ao criar colaborador");
@@ -144,6 +152,13 @@ const updateColaborador = async (req, res) => {
       return res.status(404).json({ error: "Colaborador nao encontrado" });
     }
 
+    await logAudit({
+      req,
+      action: "colaborador.update",
+      entityType: "colaborador",
+      entityId: id,
+      metadata: { nome, email, telefone },
+    });
     res.json(result.rows[0]);
   } catch (err) {
     handleApiError(res, err, "Erro ao atualizar colaborador");
@@ -183,6 +198,13 @@ const deleteColaborador = async (req, res) => {
       return res.status(404).json({ error: "Colaborador nao encontrado" });
     }
 
+    await logAudit({
+      req,
+      action: "colaborador.delete",
+      entityType: "colaborador",
+      entityId: id,
+      metadata: { softDelete: true },
+    });
     res.json({ message: "Colaborador removido com sucesso" });
   } catch (err) {
     handleApiError(res, err, "Erro ao excluir colaborador");

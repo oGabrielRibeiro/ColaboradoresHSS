@@ -4,6 +4,7 @@ const {
   handleApiError,
   badRequest,
 } = require("../utils/helpers");
+const { logAudit } = require("../utils/auditLogger");
 
 const getVinculos = async (req, res) => {
   const colaboradorId = parseOptionalInt(req.query.colaborador_id);
@@ -39,9 +40,9 @@ const getVinculos = async (req, res) => {
         c.nome as colaborador_nome,
         v.empresa_id,
         e.nome as empresa_nome,
-        v.data_inicio,
-        v.data_fim,
-        v.ativo
+        e.cnpj as empresa_cnpj,
+        v.ativo,
+        v.created_at
       FROM vinculos v
       INNER JOIN colaboradores c ON c.id = v.colaborador_id
       INNER JOIN empresas e ON e.id = v.empresa_id
@@ -89,6 +90,13 @@ const createVinculo = async (req, res) => {
       [colaboradorId, empresaId],
     );
 
+    await logAudit({
+      req,
+      action: "vinculo.create",
+      entityType: "vinculo",
+      entityId: result.rows[0].id,
+      metadata: { colaboradorId, empresaId },
+    });
     res.status(201).json(result.rows[0]);
   } catch (err) {
     handleApiError(res, err, "Erro ao criar vínculo");
@@ -103,6 +111,35 @@ const deleteVinculo = async (req, res) => {
   }
 
   try {
+    const vinculoResult = await pool.query(
+      `SELECT colaborador_id, empresa_id
+       FROM vinculos
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [id],
+    );
+
+    if (vinculoResult.rows.length === 0) {
+      return res.status(404).json({ error: "Vínculo não encontrado" });
+    }
+
+    const vinculo = vinculoResult.rows[0];
+    const documentosAtivos = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM documentos
+       WHERE colaborador_id = $1
+         AND empresa_id = $2
+         AND ativo = true
+         AND deleted_at IS NULL`,
+      [vinculo.colaborador_id, vinculo.empresa_id],
+    );
+
+    if (documentosAtivos.rows[0].total > 0) {
+      return res.status(409).json({
+        error:
+          "Nao e possivel remover o vinculo porque existem documentos empresariais ativos associados.",
+      });
+    }
+
     const result = await pool.query(
       `UPDATE vinculos SET ativo = false, deleted_at = NOW()
        WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
@@ -113,6 +150,13 @@ const deleteVinculo = async (req, res) => {
       return res.status(404).json({ error: "Vínculo não encontrado" });
     }
 
+    await logAudit({
+      req,
+      action: "vinculo.delete",
+      entityType: "vinculo",
+      entityId: id,
+      metadata: { softDelete: true },
+    });
     res.json({ message: "Vínculo removido com sucesso" });
   } catch (err) {
     handleApiError(res, err, "Erro ao remover vínculo");

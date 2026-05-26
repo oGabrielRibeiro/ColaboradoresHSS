@@ -306,6 +306,55 @@ class ApiService {
     }
   }
 
+  static Future<TipoDocumento> createTipoDocumento({
+    required String nome,
+    required String tipo,
+    String? descricao,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/tipos-documento',
+        data: {
+          'nome': nome,
+          'tipo': tipo,
+          'descricao': descricao,
+        },
+      );
+      return TipoDocumento.fromJson(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao criar tipo de documento'));
+    }
+  }
+
+  static Future<TipoDocumento> updateTipoDocumento({
+    required int id,
+    required String nome,
+    required String tipo,
+    String? descricao,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '/tipos-documento/$id',
+        data: {
+          'nome': nome,
+          'tipo': tipo,
+          'descricao': descricao,
+        },
+      );
+      return TipoDocumento.fromJson(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao atualizar tipo de documento'));
+    }
+  }
+
+  static Future<void> deleteTipoDocumento(int id) async {
+    try {
+      await _dio.delete('/tipos-documento/$id');
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao remover tipo de documento'));
+    }
+  }
+
   static Future<PaginatedResponse<Documento>> getDocumentos({
     int? colaboradorId,
     int? empresaId,
@@ -344,8 +393,6 @@ class ApiService {
   static Future<List<Documento>> getDocumentosPorColaborador(
     int colaboradorId,
   ) async {
-    // TODO: A tela de detalhes do colaborador deve ser paginada no futuro
-    // Por enquanto, buscamos apenas os primeiros 100 para evitar sobrecarga
     final response = await getDocumentos(
       colaboradorId: colaboradorId,
       limit: 100,
@@ -409,13 +456,14 @@ class ApiService {
   }
 
   static Future<DashboardResumo> getDashboardResumo() async {
-    try {
-      final response = await _dio.get('/dashboard/resumo');
-      return DashboardResumo.fromJson(response.data);
-    } catch (e) {
-      throw Exception(_extractError(e, 'Erro ao carregar resumo'));
-    }
+  try {
+    final response = await _dio.get('/dashboard/resumo');
+
+    return DashboardResumo.fromJson(response.data);
+  } catch (e) {
+    throw Exception(_extractError(e, 'Erro ao carregar resumo'));
   }
+}
 
   static Future<Map<String, dynamic>> uploadArquivo(
     FilePickerResult arquivo, {
@@ -450,7 +498,20 @@ class ApiService {
         data: formData,
         options: Options(contentType: 'multipart/form-data'),
       );
-      return Map<String, dynamic>.from(response.data);
+      final data = Map<String, dynamic>.from(response.data);
+      final uploadFileData = data['file'];
+
+      if (uploadFileData is Map) {
+        final fileMap = Map<String, dynamic>.from(uploadFileData);
+        return {
+          ...data,
+          'arquivo_nome':
+              fileMap['originalname'] ?? fileMap['filename'] ?? data['arquivo_nome'],
+          'arquivo_path': fileMap['path'] ?? data['arquivo_path'],
+        };
+      }
+
+      return data;
     } catch (e) {
       throw Exception(_extractError(e, 'Erro no upload do arquivo'));
     }

@@ -119,7 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           child: Row(
             children: [
               Container(
@@ -134,12 +134,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+
+                    const SizedBox(height: 2),
+
                     Text(
                       subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -156,6 +167,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    final quickActionsColumns = width > 1200
+        ? 4
+        : width > 950
+        ? 2
+        : 1;
     final cardsCrossAxisCount = width > 1100
         ? 4
         : width > 700
@@ -164,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Painel RH'),
+        title: const Text('Painel RH HSS'),
         actions: [
           IconButton(
             onPressed: _carregarDados,
@@ -220,7 +236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Versao de testes 1.0',
+                          'RH HSS App 1.0',
                           style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         const SizedBox(height: 8),
@@ -230,6 +246,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Acoes rapidas',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: quickActionsColumns,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: quickActionsColumns == 2 ? 2.8 : 3.5,
+                    children: [
+                      _buildQuickAction(
+                        icon: Icons.person_add_alt_1_rounded,
+                        title: 'Gerenciar colaboradores',
+                        subtitle:
+                            'Cadastre, edite e vincule colaboradores a empresas',
+                        onTap: () {
+                          context.push('/dashboard/colaboradores');
+                        },
+                      ),
+                      _buildQuickAction(
+                        icon: Icons.domain_add_rounded,
+                        title: 'Gerenciar empresas',
+                        subtitle: 'Mantenha a base de empresas e contatos',
+                        onTap: () {
+                          context.push('/dashboard/empresas');
+                        },
+                      ),
+                      _buildQuickAction(
+                        icon: Icons.upload_file_rounded,
+                        title: 'Cadastrar documento',
+                        subtitle: 'Envie documentos pessoais e empresariais',
+                        onTap: () {
+                          context.push('/dashboard/documentos/novo');
+                        },
+                      ),
+                      _buildQuickAction(
+                        icon: Icons.category_rounded,
+                        title: 'Tipos de documento',
+                        subtitle: 'Cadastre e mantenha os tipos do sistema',
+                        onTap: () {
+                          context.push('/dashboard/tipos-documento');
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   GridView.count(
@@ -285,28 +350,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 20),
                   if (_resumo != null) _DocumentosStatusChart(resumo: _resumo!),
                   if (_resumo != null) const SizedBox(height: 20),
-                  Text(
-                    'Acoes rapidas',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildQuickAction(
-                    icon: Icons.person_add_alt_1_rounded,
-                    title: 'Gerenciar colaboradores',
-                    subtitle: 'Cadastre, edite e acesse os detalhes',
-                    onTap: () {
-                      context.push('/dashboard/colaboradores');
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _buildQuickAction(
-                    icon: Icons.domain_add_rounded,
-                    title: 'Gerenciar empresas',
-                    subtitle: 'Mantenha a base de empresas e contatos',
-                    onTap: () {
-                      context.push('/dashboard/empresas');
-                    },
-                  ),
                 ],
               ),
             ),

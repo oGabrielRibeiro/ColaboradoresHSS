@@ -36,17 +36,17 @@ Objetivo: garantir que o sistema funcione de ponta a ponta sem comportamento con
 
 ### Bugs criticos para corrigir primeiro
 
-- [ ] Corrigir o bug em que documento empresarial esta sendo salvo como documento pessoal
-- [ ] Garantir que `empresa_id` chegue corretamente do frontend ao backend em todo fluxo de criacao
-- [ ] Garantir que o documento empresarial apareca na empresa correta na tela de detalhes
-- [ ] Validar se a substituicao de documento preserva corretamente `empresa_id`, `tipo_documento_id` e versao
+- [x] Corrigir o bug em que documento empresarial esta sendo salvo como documento pessoal
+- [x] Garantir que `empresa_id` chegue corretamente do frontend ao backend em todo fluxo de criacao
+- [x] Garantir que o documento empresarial apareca na empresa correta na tela de detalhes
+- [x] Validar se a substituicao de documento preserva corretamente `empresa_id`, `tipo_documento_id` e versao
 - [ ] Corrigir qualquer inconsistenca entre lista exibida e dados realmente salvos no banco
 
 ### Ajustes obrigatorios no fluxo do colaborador
 
-- [ ] Exibir empresas vinculadas de forma confiavel e sem chamadas repetidas desnecessarias
-- [ ] Permitir adicionar e remover vinculos sem depender de atualizacao manual da tela
-- [ ] Bloquear criacao de documento empresarial se o colaborador nao estiver vinculado a empresa
+- [x] Exibir empresas vinculadas de forma confiavel e sem chamadas repetidas desnecessarias
+- [x] Permitir adicionar e remover vinculos sem depender de atualizacao manual da tela
+- [x] Bloquear criacao de documento empresarial se o colaborador nao estiver vinculado a empresa
 - [ ] Recarregar dados corretamente apos criar, substituir ou remover registros
 - [ ] Revisar mensagens de erro para o usuario entender o que aconteceu
 
@@ -60,10 +60,10 @@ Objetivo: garantir que o sistema funcione de ponta a ponta sem comportamento con
 
 ### Entrega esperada desta fase
 
-- [ ] Cadastrar empresa
-- [ ] Vincular colaborador a empresa
-- [ ] Anexar documento pessoal
-- [ ] Anexar documento empresarial
+- [x] Cadastrar empresa
+- [x] Vincular colaborador a empresa
+- [x] Anexar documento pessoal
+- [x] Anexar documento empresarial
 - [ ] Substituir documento existente
 - [ ] Ver tudo refletido corretamente no dashboard e nas listas
 
@@ -75,25 +75,25 @@ Objetivo: sair de MVP tecnico para sistema utilizavel no dia a dia.
 
 ### Empresas
 
-- [ ] Criar tela de listagem de empresas
-- [ ] Criar tela de cadastro de empresa
-- [ ] Criar edicao de empresa
-- [ ] Criar exclusao de empresa com confirmacao
-- [ ] Adicionar busca por nome ou CNPJ
+- [x] Criar tela de listagem de empresas
+- [x] Criar tela de cadastro de empresa
+- [x] Criar edicao de empresa
+- [x] Criar exclusao de empresa com confirmacao
+- [x] Adicionar busca por nome ou CNPJ
 - [ ] Impedir exclusao de empresa com dependencias sem tratamento claro
 
 ### Colaboradores
 
-- [ ] Revisar cadastro de colaborador
-- [ ] Adicionar edicao de colaborador
-- [ ] Adicionar exclusao com confirmacao
-- [ ] Permitir busca e filtros na lista
+- [x] Revisar cadastro de colaborador
+- [x] Adicionar edicao de colaborador
+- [x] Adicionar exclusao com confirmacao
+- [x] Permitir busca e filtros na lista
 
 ### Documentos
 
-- [ ] Exibir nome do tipo de documento em vez do ID
-- [ ] Exibir status visual claro: vencido, a vencer, em dia
-- [ ] Permitir visualizar arquivo anexado
+- [x] Exibir nome do tipo de documento em vez do ID
+- [x] Exibir status visual claro: vencido, a vencer, em dia
+- [x] Permitir visualizar arquivo anexado
 - [ ] Melhorar a apresentacao de documentos por empresa
 - [ ] Mostrar historico de versoes do documento
 - [ ] Exibir data de upload e versao atual
@@ -101,8 +101,8 @@ Objetivo: sair de MVP tecnico para sistema utilizavel no dia a dia.
 ### Dashboard
 
 - [ ] Corrigir overflow e responsividade em telas pequenas
-- [ ] Tornar cards clicaveis com filtros reais
-- [ ] Adicionar navegacao para empresas
+- [x] Tornar cards clicaveis com filtros reais
+- [x] Adicionar navegacao para empresas
 - [ ] Revisar contadores para garantir consistencia com os dados ativos
 - [ ] Melhorar feedback de carregamento e erro
 
@@ -140,7 +140,7 @@ Objetivo: diminuir regressao, facilitar manutencao e dar seguranca para evoluir.
 
 ### Frontend
 
-- [ ] Implementar suporte a paginacao nas telas de listagem (Infinite Scroll ou Botoes de Pagina)
+- [x] Implementar suporte a paginacao nas telas de listagem (Infinite Scroll ou Botoes de Pagina)
 - [ ] Reduzir chamadas repetidas para a API
 - [ ] Centralizar tratamento de erros de rede
 - [ ] Revisar organizacao de models e servicos para evitar duplicidade
@@ -149,7 +149,7 @@ Objetivo: diminuir regressao, facilitar manutencao e dar seguranca para evoluir.
 
 ### Testes
 
-- [ ] Criar checklist manual de fluxo principal
+- [x] Criar checklist manual de fluxo principal
 - [ ] Testar cadastro, vinculo, upload e substituicao ponta a ponta
 - [ ] Testar cenarios de erro: arquivo invalido, data invalida, vinculo ausente
 - [ ] Testar responsividade em diferentes larguras
@@ -180,7 +180,7 @@ Objetivo: deixar o sistema apto para uso real com menos risco.
 - [ ] Esconder configuracoes sensiveis via `.env`
 - [x] Revisar exposicao publica da pasta de uploads
 - [x] Implementar Rate Limiting na API para evitar abusos
-- [ ] Criar logs de auditoria (tabela `audit_logs` para rastrear quem criou/editou/deletou o que)
+- [x] Criar logs de auditoria (tabela `audit_logs` para rastrear quem criou/editou/deletou o que)
 
 ### Infraestrutura
 
@@ -229,8 +229,8 @@ Objetivo: melhorar experiencia, usabilidade e valor para o usuario.
 
 ### Relatorios e operacao
 
-- [ ] Relatorio de documentos vencidos por empresa
-- [ ] Relatorio de documentos a vencer por periodo
+- [x] Relatorio de documentos vencidos por empresa
+- [x] Relatorio de documentos a vencer por periodo
 - [ ] Exportacao simples para PDF ou CSV
 - [ ] Permitir download em lote (ZIP) dos documentos de um colaborador
 - [ ] Cache de dados do Dashboard (Redis ou Node Cache) para nao sobrecarregar o banco
@@ -258,6 +258,20 @@ Itens bons, mas nao bloqueiam entrega inicial:
 - [ ] Validar upload e substituicao
 - [ ] Melhorar mensagens de erro
 - [ ] Testar fluxo ponta a ponta
+
+---
+
+## Checklist Manual Atual (1.0)
+
+- [x] Login e acesso ao dashboard
+- [x] Cadastro, edicao e exclusao de colaboradores
+- [x] Cadastro, edicao e exclusao de empresas
+- [x] Vincular e desvincular colaborador-empresa (com bloqueio se houver documento empresarial ativo)
+- [x] Cadastro de documento pessoal pela tela `Novo documento`
+- [x] Cadastro de documento empresarial com validacao de vinculo
+- [x] Abertura de anexo com link assinado
+- [ ] Substituicao de documento (nova versao) validada ponta a ponta
+- [ ] Validacao final de responsividade (mobile/web) em todas as telas
 
 ### Sprint 2 - Operacao minima
 

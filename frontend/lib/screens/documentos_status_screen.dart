@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend/models/documento_model.dart';
 import 'package:frontend/services/api_service.dart';
+import 'package:go_router/go_router.dart';
 // Importar para _ErrorState e _EmptyState
 import 'package:frontend/theme/app_theme.dart';
 import 'package:frontend/widgets/document_utils.dart'; // Caminho corrigido
@@ -182,9 +183,31 @@ class _DocumentosStatusScreenState extends State<DocumentosStatusScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Text(
-                'Acompanhe os documentos filtrados por status para agir rapido sobre vencimentos e pendencias.',
-                style: Theme.of(context).textTheme.bodyLarge,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Acompanhe os documentos filtrados por status para agir rapido sobre vencimentos e pendencias.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => context.push('/dashboard'),
+                        icon: const Icon(Icons.dashboard_outlined),
+                        label: const Text('Voltar ao painel'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => context.push('/dashboard/documentos/novo'),
+                        icon: const Icon(Icons.add_circle_outline_rounded),
+                        label: const Text('Novo documento'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -219,10 +242,21 @@ class _DocumentosStatusScreenState extends State<DocumentosStatusScreen> {
                 _documentos.isEmpty) // Estado de erro
               _ErrorState(message: _errorMessage, onRetry: _carregarDocumentos)
             else if (_documentos.isEmpty) // Estado vazio
-              const Center(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('Nenhum documento encontrado para este filtro'),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Nenhum documento encontrado para este filtro'),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => context.push('/dashboard/documentos/novo'),
+                        icon: const Icon(Icons.upload_file_rounded),
+                        label: const Text('Cadastrar documento'),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else if (_isGridView) // Visualizacao em Grid (usar GridView.builder diretamente)
@@ -343,6 +377,14 @@ class _DocumentosStatusScreenState extends State<DocumentosStatusScreen> {
                                     icon: const Icon(Icons.open_in_new),
                                     label: const Text('Abrir anexo'),
                                   ),
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  onPressed: () => context.push(
+                                    '/dashboard/colaboradores/${documento.colaboradorId}',
+                                  ),
+                                  icon: const Icon(Icons.link_rounded),
+                                  label: const Text('Ver vínculo'),
+                                ),
                               ],
                             ),
                           ],

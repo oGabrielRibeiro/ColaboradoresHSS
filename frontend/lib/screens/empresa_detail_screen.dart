@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/models/documento_model.dart';
 import 'package:frontend/models/empresa_model.dart';
-import 'package:frontend/services/api_service.dart';
 import 'package:frontend/models/paginated_response.dart';
+import 'package:frontend/models/vinculo_model.dart';
+import 'package:frontend/services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend/widgets/documento_card.dart';
+import 'package:go_router/go_router.dart';
 
 class EmpresaDetailScreen extends StatefulWidget {
   final int empresaId;
@@ -15,9 +17,15 @@ class EmpresaDetailScreen extends StatefulWidget {
 }
 
 class _EmpresaDetailScreenState extends State<EmpresaDetailScreen> {
+  static const int _documentosPageSize = 20;
+
   Empresa? _empresa;
   List<Documento> _documentos = [];
+  List<Vinculo> _vinculos = [];
   bool _isLoading = true;
+  bool _isLoadingMoreDocumentos = false;
+  bool _hasMoreDocumentos = true;
+  int _documentosPage = 1;
   String _errorMessage = '';
 
   @override
@@ -33,23 +41,25 @@ class _EmpresaDetailScreenState extends State<EmpresaDetailScreen> {
     });
 
     try {
-      final empresa = await ApiService.getEmpresaById(
-        widget.empresaId,
-      ); // Mantido para clareza
-      final documentosResponse = await ApiService.getDocumentos(
-        empresaId: widget.empresaId,
-        limit: 100, // TODO: Implementar paginacao
-      );
-
-      // TODO: Implementar endpoint para buscar colaboradores por empresa.
-      // A API atual não suporta buscar colaboradores vinculados a uma empresa diretamente.
-      // Seria necessário um endpoint como `GET /empresas/:id/colaboradores`
-      // ou `GET /vinculos?empresa_id=:id`.
+      final resultados = await Future.wait([
+        ApiService.getEmpresaById(widget.empresaId),
+        ApiService.getDocumentos(
+          empresaId: widget.empresaId,
+          page: 1,
+          limit: _documentosPageSize,
+        ),
+        ApiService.getVinculos(empresaId: widget.empresaId),
+      ]);
 
       setState(() {
-        _empresa = empresa;
-        // O ApiService.getDocumentos retorna um PaginatedResponse.
+        _empresa = resultados[0] as Empresa;
+        final documentosResponse =
+            resultados[1] as PaginatedResponse<Documento>;
         _documentos = documentosResponse.items;
+        _documentosPage = 1;
+        _hasMoreDocumentos = documentosResponse.hasMore;
+        _vinculos = resultados[2] as List<Vinculo>;
+        _isLoadingMoreDocumentos = false;
         _isLoading = false;
       });
     } catch (e) {
@@ -57,6 +67,34 @@ class _EmpresaDetailScreenState extends State<EmpresaDetailScreen> {
         _isLoading = false;
         _errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
+    }
+  }
+
+  Future<void> _carregarMaisDocumentos() async {
+    if (_isLoadingMoreDocumentos || !_hasMoreDocumentos) {
+      return;
+    }
+
+    setState(() => _isLoadingMoreDocumentos = true);
+    try {
+      final nextPage = _documentosPage + 1;
+      final response = await ApiService.getDocumentos(
+        empresaId: widget.empresaId,
+        page: nextPage,
+        limit: _documentosPageSize,
+      );
+      setState(() {
+        _documentos.addAll(response.items);
+        _documentosPage = nextPage;
+        _hasMoreDocumentos = response.hasMore;
+        _isLoadingMoreDocumentos = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingMoreDocumentos = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
     }
   }
 
@@ -149,6 +187,23 @@ class _EmpresaDetailScreenState extends State<EmpresaDetailScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => context.push('/dashboard'),
+                        icon: const Icon(Icons.dashboard_outlined),
+                        label: const Text('Voltar ao painel'),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => context.push('/dashboard/documentos/novo'),
+                        icon: const Icon(Icons.upload_file_rounded),
+                        label: const Text('Novo documento'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   if (_documentos.isEmpty)
                     const Card(
                       child: Padding(
@@ -161,18 +216,42 @@ class _EmpresaDetailScreenState extends State<EmpresaDetailScreen> {
                       ),
                     )
                   else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _documentos.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final doc = _documentos[index];
-                        return DocumentoCard(
-                          documento: doc,
-                          onOpen: () => _abrirArquivo(doc.arquivoPath),
-                        );
-                      },
+                    Column(
+                      children: [
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _documentos.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final doc = _documentos[index];
+                            return DocumentoCard(
+                              documento: doc,
+                              onOpen: () => _abrirArquivo(doc.arquivoPath),
+                            );
+                          },
+                        ),
+                        if (_hasMoreDocumentos) ...[
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: _isLoadingMoreDocumentos
+                                ? null
+                                : _carregarMaisDocumentos,
+                            icon: _isLoadingMoreDocumentos
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.expand_more_rounded),
+                            label: Text(
+                              _isLoadingMoreDocumentos
+                                  ? 'Carregando...'
+                                  : 'Carregar mais documentos',
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   const SizedBox(height: 24),
                   Text(
@@ -180,32 +259,29 @@ class _EmpresaDetailScreenState extends State<EmpresaDetailScreen> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
-                  const Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(24.0),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.construction_rounded,
-                              size: 32,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 12),
-                            Text(
-                              'Em desenvolvimento',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'A listagem de colaboradores por empresa será adicionada em breve.',
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                  if (_vinculos.isEmpty)
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Center(
+                          child: Text('Nenhum colaborador vinculado a esta empresa.'),
                         ),
                       ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: _vinculos.map((vinculo) {
+                        return ActionChip(
+                          avatar: const Icon(Icons.person_outline_rounded, size: 18),
+                          label: Text(vinculo.colaboradorNome ?? 'Colaborador'),
+                          onPressed: () => context.go(
+                            '/dashboard/colaboradores/${vinculo.colaboradorId}',
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  ),
                 ],
               ),
       ),

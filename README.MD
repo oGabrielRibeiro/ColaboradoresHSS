@@ -31,6 +31,50 @@ Sistema de gestao de documentos para RH com colaboradores, empresas, vinculos e 
 4. Frontend Flutter:
    execute dentro de `frontend/` com `flutter run -d chrome` ou dispositivo iOS
 
+## Subida automatica (Windows)
+
+Para facilitar em outra maquina, use o script PowerShell na raiz:
+
+`.\UP.ps1`
+
+Opcoes uteis:
+
+- `.\UP.ps1 -Mode dev -WithFrontend`
+- `.\UP.ps1 -Mode prod`
+- `.\UP.ps1 -Mode prod -NoBuild`
+
+O script valida:
+
+- Docker instalado e ativo
+- Presenca e consistencia minima do `.env`
+- Portas principais (`3000`, `5432` e porta do frontend)
+- Healthcheck da API em `GET /health`
+
+Se usar `-WithFrontend`, ele abre nova janela do PowerShell e inicia:
+
+`flutter run -d chrome --web-port 3001`
+
+## Operacao assistida (Windows)
+
+Parar ambiente:
+
+- `.\DOWN.ps1`
+- `.\DOWN.ps1 -Mode prod`
+- `.\DOWN.ps1 -Mode prod -RemoveVolumes` (apaga volumes do compose selecionado)
+
+Backup do banco:
+
+- `.\BACKUP.ps1`
+- `.\BACKUP.ps1 -Mode prod`
+- `.\BACKUP.ps1 -OutputDir "backups"`
+
+Restore do banco:
+
+- `.\RESTORE.ps1 -BackupFile ".\backups\SEU_ARQUIVO.sql"`
+- `.\RESTORE.ps1 -Mode prod -BackupFile ".\backups\SEU_ARQUIVO.sql"`
+
+Obs: o restore pede confirmacao explicita (`RESTORE`) antes de executar.
+
 ## Usuario inicial
 
 Na primeira subida, o backend cria automaticamente um usuario RH se nao houver nenhum na tabela `usuarios_rh`.

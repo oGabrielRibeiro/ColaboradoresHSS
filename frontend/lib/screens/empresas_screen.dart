@@ -296,7 +296,6 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        // TODO: Mover para um widget de acoes rapidas
         onPressed: _abrirFormulario,
         icon: const Icon(Icons.add_business_outlined),
         label: const Text('Nova empresa'),

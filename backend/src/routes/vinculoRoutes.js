@@ -5,7 +5,7 @@ const {
   createVinculo,
   deleteVinculo,
 } = require("../controllers/vinculoController");
-const { protect } = require("../middleware/authMiddleware");
+const protect = require("../middleware/auth");
 
 // GET /api/vinculos?colaborador_id=X ou ?empresa_id=Y
 router.get("/", protect, getVinculos);

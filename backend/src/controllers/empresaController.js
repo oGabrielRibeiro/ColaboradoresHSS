@@ -5,6 +5,7 @@ const {
   handleApiError,
   badRequest,
 } = require("../utils/helpers");
+const { logAudit } = require("../utils/auditLogger");
 
 const getEmpresas = async (req, res) => {
   const page = parseOptionalInt(req.query.page) || 1;
@@ -58,6 +59,13 @@ const createEmpresa = async (req, res) => {
       "INSERT INTO empresas (nome, cnpj, contato) VALUES ($1, $2, $3) RETURNING *",
       [nome, cnpj, contato],
     );
+    await logAudit({
+      req,
+      action: "empresa.create",
+      entityType: "empresa",
+      entityId: result.rows[0].id,
+      metadata: { nome, cnpj, contato },
+    });
     res.status(201).json(result.rows[0]);
   } catch (err) {
     handleApiError(res, err, "Erro ao criar empresa");
@@ -91,6 +99,13 @@ const updateEmpresa = async (req, res) => {
       return res.status(404).json({ error: "Empresa nao encontrada" });
     }
 
+    await logAudit({
+      req,
+      action: "empresa.update",
+      entityType: "empresa",
+      entityId: id,
+      metadata: { nome, cnpj, contato },
+    });
     res.json(result.rows[0]);
   } catch (err) {
     handleApiError(res, err, "Erro ao atualizar empresa");
@@ -128,6 +143,13 @@ const deleteEmpresa = async (req, res) => {
       return res.status(404).json({ error: "Empresa nao encontrada" });
     }
 
+    await logAudit({
+      req,
+      action: "empresa.delete",
+      entityType: "empresa",
+      entityId: id,
+      metadata: { softDelete: true },
+    });
     res.json({ message: "Empresa removida com sucesso" });
   } catch (err) {
     handleApiError(res, err, "Erro ao excluir empresa");

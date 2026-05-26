@@ -8,6 +8,7 @@ const {
   handleApiError,
   badRequest,
 } = require("../utils/helpers");
+const { logAudit } = require("../utils/auditLogger");
 
 const ensureEmpresaVinculada = async (colaboradorId, empresaId) => {
   const vinculo = await pool.query(
@@ -186,7 +187,7 @@ const createDocumento = async (req, res) => {
     const existente = await pool.query(
       `SELECT id
          FROM documentos
-         WHERE d.colaborador_id = $1
+         WHERE colaborador_id = $1
            AND tipo_documento_id = $2
            AND (
              (empresa_id = $3)
@@ -222,6 +223,18 @@ const createDocumento = async (req, res) => {
       ],
     );
 
+    await logAudit({
+      req,
+      action: "documento.create",
+      entityType: "documento",
+      entityId: result.rows[0].id,
+      metadata: {
+        colaboradorId,
+        empresaId,
+        tipoDocumentoId,
+        dataValidade,
+      },
+    });
     res.status(201).json(result.rows[0]);
   } catch (err) {
     handleApiError(res, err, "Erro ao criar documento");
@@ -346,6 +359,17 @@ const substituirDocumento = async (req, res) => {
     );
 
     await client.query("COMMIT");
+    await logAudit({
+      req,
+      action: "documento.substituir",
+      entityType: "documento",
+      entityId: novoDocumento.id,
+      metadata: {
+        originalId: original.id,
+        versaoNova: novoDocumento.versao,
+        dataValidade,
+      },
+    });
     res.status(201).json(novoDocumento);
   } catch (err) {
     await client.query("ROLLBACK");
@@ -448,6 +472,13 @@ const deleteDocumento = async (req, res) => {
       return res.status(404).json({ error: "Documento nao encontrado" });
     }
 
+    await logAudit({
+      req,
+      action: "documento.delete",
+      entityType: "documento",
+      entityId: id,
+      metadata: { softDelete: true },
+    });
     res.json({ message: "Documento removido com sucesso" });
   } catch (err) {
     handleApiError(res, err, "Erro ao excluir documento");

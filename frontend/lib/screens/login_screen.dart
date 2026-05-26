@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'rh@empresa.com');
+  final _emailController = TextEditingController(text: 'hss@hsslinea.com.br');
   final _passwordController = TextEditingController(text: '123456');
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -78,7 +78,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: isWide
                     ? Row(
                         children: [
-                          Expanded(child: _buildHeroPanel(context)),
+                          Expanded(
+                            child: Center(child: _buildHeroPanel(context)),
+                          ),
                           const SizedBox(width: 24),
                           SizedBox(width: 420, child: _buildLoginCard(context)),
                         ],
@@ -111,21 +113,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(
-              Icons.folder_copy_outlined,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
+          Image.asset('logo/LETREIRO-HSS.png', height: 60),
           const SizedBox(height: 20),
           Text(
             'RH Documentos',
@@ -148,6 +138,9 @@ class _LoginScreenState extends State<LoginScreen> {
               _HeroTag(label: 'Dashboard operacional'),
               _HeroTag(label: 'Documentos pessoais e empresariais'),
               _HeroTag(label: 'Historico de versoes'),
+              _HeroTag(label: 'Controle de acesso'),
+              _HeroTag(label: 'Upload e download de arquivos'),
+              _HeroTag(label: 'Notificações de vencimento'),
             ],
           ),
         ],
@@ -165,6 +158,8 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Image.asset('logo/LETREIRO-HSS.png', height: 40),
+              const SizedBox(height: 18),
               Text(
                 'Acesso de teste',
                 style: Theme.of(context).textTheme.headlineSmall,
@@ -173,22 +168,6 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 'Use as credenciais abaixo para navegar pela versao 1.0 de testes.',
                 style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentSand,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Usuario inicial: RH_DEFAULT_EMAIL'),
-                    SizedBox(height: 4),
-                    Text('Senha inicial: RH_DEFAULT_PASSWORD'),
-                  ],
-                ),
               ),
               const SizedBox(height: 18),
               TextFormField(

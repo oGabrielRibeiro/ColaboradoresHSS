@@ -14,12 +14,12 @@ class DashboardResumo {
   });
 
   factory DashboardResumo.fromJson(Map<String, dynamic> json) {
-    return DashboardResumo(
-      totalColaboradores: json['totalColaboradores'] ?? 0,
-      totalEmpresas: json['totalEmpresas'] ?? 0,
-      documentosVencidos: json['documentosVencidos'] ?? 0,
-      documentosAVencer: json['documentosAVencer'] ?? 0,
-      documentosOK: json['documentosOK'] ?? 0,
-    );
-  }
+  return DashboardResumo(
+    totalColaboradores: json['total_colaboradores'] ?? 0,
+    totalEmpresas: json['total_empresas'] ?? 0,
+    documentosVencidos: json['documentos_vencidos'] ?? 0,
+    documentosAVencer: json['documentos_a_vencer'] ?? 0,
+    documentosOK: json['total_documentos_ativos'] ?? 0,
+  );
+}
 }
