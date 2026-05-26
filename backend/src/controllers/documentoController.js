@@ -13,11 +13,11 @@ const { logAudit } = require("../utils/auditLogger");
 const ensureEmpresaVinculada = async (colaboradorId, empresaId) => {
   const vinculo = await pool.query(
     `SELECT id
-     FROM vinculos
-     WHERE colaborador_id = $1
-       AND empresa_id = $2
-       AND ativo = true
-       AND deleted_at IS NULL`, // Added deleted_at check for consistency
+    FROM vinculos
+    WHERE colaborador_id = $1
+    AND empresa_id = $2
+    AND ativo = true
+    AND deleted_at IS NULL`, // Added deleted_at check for consistency
     [colaboradorId, empresaId],
   );
 
@@ -82,31 +82,31 @@ const getDocumentos = async (req, res) => {
 
   // Common FROM and JOIN clauses for both data and count queries
   const fromJoinClause = `
-    FROM documentos d
-    INNER JOIN colaboradores c ON c.id = d.colaborador_id
-    LEFT JOIN tipos_documento td ON td.id = d.tipo_documento_id
-    LEFT JOIN empresas e ON e.id = d.empresa_id
+  FROM documentos d
+  INNER JOIN colaboradores c ON c.id = d.colaborador_id
+  LEFT JOIN tipos_documento td ON td.id = d.tipo_documento_id
+  LEFT JOIN empresas e ON e.id = d.empresa_id
   `;
 
   try {
     const dataQuery = `
-        SELECT
-          d.*,
-          c.nome AS colaborador_nome,
-          td.nome AS tipo_documento_nome,
-          td.tipo AS tipo_documento_categoria,
-          e.nome AS empresa_nome
-        ${fromJoinClause}
-        ${whereClause}
-        ORDER BY d.data_validade ASC, d.created_at DESC
-        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
-      `;
+    SELECT
+    d.*,
+    c.nome AS colaborador_nome,
+    td.nome AS tipo_documento_nome,
+    td.tipo AS tipo_documento_categoria,
+    e.nome AS empresa_nome
+    ${fromJoinClause}
+    ${whereClause}
+    ORDER BY d.data_validade ASC, d.created_at DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `;
 
     const countQuery = `
-        SELECT COUNT(*) 
-        ${fromJoinClause}
-        ${whereClause}
-      `;
+    SELECT COUNT(*)
+    ${fromJoinClause}
+    ${whereClause}
+    `;
 
     const dataPromise = pool.query(dataQuery, [...params, limit, offset]);
     const countPromise = pool.query(countQuery, params);
@@ -166,18 +166,22 @@ const createDocumento = async (req, res) => {
 
     const categoria = tipo.rows[0].tipo;
 
+    // BUG FIX: Normaliza empresa_id baseado na categoria do documento
+    // Se for pessoal, garante que empresa_id seja null
+    const empresaIdFinal = categoria === "pessoal" ? null : empresaId;
+
     if (categoria === "empresa") {
-      if (!empresaId) {
+      if (!empresaIdFinal) {
         return handleApiError(
           res,
           badRequest("Documentos empresariais exigem empresa vinculada"),
         );
       }
 
-      await ensureEmpresaVinculada(colaboradorId, empresaId);
+      await ensureEmpresaVinculada(colaboradorId, empresaIdFinal);
     }
 
-    if (categoria === "pessoal" && empresaId) {
+    if (categoria === "pessoal" && empresaIdFinal) {
       return handleApiError(
         res,
         badRequest("Documentos pessoais nao devem ser vinculados a empresa"),
@@ -186,6 +190,7 @@ const createDocumento = async (req, res) => {
 
     const existente = await pool.query(
       `SELECT id
+<<<<<<< HEAD
          FROM documentos
          WHERE colaborador_id = $1
            AND tipo_documento_id = $2
@@ -196,6 +201,18 @@ const createDocumento = async (req, res) => {
            AND ativo = true
            AND deleted_at IS NULL`,
       [colaboradorId, tipoDocumentoId, empresaId],
+=======
+      FROM documentos
+      WHERE d.colaborador_id = $1
+      AND tipo_documento_id = $2
+      AND (
+        (empresa_id = $3)
+        OR ($3 IS NULL AND empresa_id IS NULL)
+      )
+      AND ativo = true
+      AND deleted_at IS NULL`,
+      [colaboradorId, tipoDocumentoId, empresaIdFinal],
+>>>>>>> 14e77d995daeddfa9c1120877bb980936b9b3e70
     );
 
     if (existente.rows.length > 0) {
@@ -209,12 +226,12 @@ const createDocumento = async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO documentos
-         (colaborador_id, empresa_id, tipo_documento_id, data_validade, arquivo_nome, arquivo_path, observacoes, ativo, versao)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, true, 1)
-         RETURNING *`,
+      (colaborador_id, empresa_id, tipo_documento_id, data_validade, arquivo_nome, arquivo_path, observacoes, ativo, versao)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true, 1)
+      RETURNING *`,
       [
         colaboradorId,
-        empresaId,
+        empresaIdFinal,
         tipoDocumentoId,
         dataValidade,
         arquivoNome,
@@ -262,24 +279,24 @@ const getDocumentoHistorico = async (req, res) => {
 
     const historico = await pool.query(
       `SELECT
-           d.*,
-           c.nome AS colaborador_nome,
-           td.nome AS tipo_documento_nome,
-           td.tipo AS tipo_documento_categoria,
-           e.nome AS empresa_nome
-         FROM documentos d
-         INNER JOIN colaboradores c ON c.id = d.colaborador_id
-         LEFT JOIN tipos_documento td ON td.id = d.tipo_documento_id
-         LEFT JOIN empresas e ON e.id = d.empresa_id
-         WHERE d.colaborador_id = $1
-           AND d.tipo_documento_id = $2
-           AND (
-             (d.empresa_id = $3)
-             OR ($3 IS NULL AND d.empresa_id IS NULL)
-           )
-           AND d.deleted_at IS NULL
-           AND c.deleted_at IS NULL
-         ORDER BY d.versao DESC, d.created_at DESC`,
+      d.*,
+      c.nome AS colaborador_nome,
+      td.nome AS tipo_documento_nome,
+      td.tipo AS tipo_documento_categoria,
+      e.nome AS empresa_nome
+      FROM documentos d
+      INNER JOIN colaboradores c ON c.id = d.colaborador_id
+      LEFT JOIN tipos_documento td ON td.id = d.tipo_documento_id
+      LEFT JOIN empresas e ON e.id = d.empresa_id
+      WHERE d.colaborador_id = $1
+      AND d.tipo_documento_id = $2
+      AND (
+        (d.empresa_id = $3)
+        OR ($3 IS NULL AND d.empresa_id IS NULL)
+      )
+      AND d.deleted_at IS NULL
+      AND c.deleted_at IS NULL
+      ORDER BY d.versao DESC, d.created_at DESC`,
       [doc.colaborador_id, doc.tipo_documento_id, doc.empresa_id],
     );
 
@@ -336,9 +353,9 @@ const substituirDocumento = async (req, res) => {
 
     const novoDocumentoResult = await client.query(
       `INSERT INTO documentos
-         (colaborador_id, empresa_id, tipo_documento_id, data_validade, arquivo_nome, arquivo_path, observacoes, ativo, versao)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
-         RETURNING *`,
+      (colaborador_id, empresa_id, tipo_documento_id, data_validade, arquivo_nome, arquivo_path, observacoes, ativo, versao)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8)
+      RETURNING *`,
       [
         original.colaborador_id,
         original.empresa_id,
@@ -392,16 +409,16 @@ const getDocumentoById = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT
-         d.*,
-         c.nome AS colaborador_nome,
-         td.nome AS tipo_documento_nome,
-         td.tipo AS tipo_documento_categoria,
-         e.nome AS empresa_nome
-       FROM documentos d
-       INNER JOIN colaboradores c ON c.id = d.colaborador_id
-       LEFT JOIN tipos_documento td ON td.id = d.tipo_documento_id
-       LEFT JOIN empresas e ON e.id = d.empresa_id
-       WHERE d.id = $1 AND d.deleted_at IS NULL`,
+      d.*,
+      c.nome AS colaborador_nome,
+      td.nome AS tipo_documento_nome,
+      td.tipo AS tipo_documento_categoria,
+      e.nome AS empresa_nome
+      FROM documentos d
+      INNER JOIN colaboradores c ON c.id = d.colaborador_id
+      LEFT JOIN tipos_documento td ON td.id = d.tipo_documento_id
+      LEFT JOIN empresas e ON e.id = d.empresa_id
+      WHERE d.id = $1 AND d.deleted_at IS NULL`,
       [id],
     );
 
@@ -439,9 +456,9 @@ const updateDocumento = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE documentos
-       SET data_validade = $1, observacoes = $2, ativo = $3
-       WHERE id = $4 AND deleted_at IS NULL
-       RETURNING *`,
+      SET data_validade = $1, observacoes = $2, ativo = $3
+      WHERE id = $4 AND deleted_at IS NULL
+      RETURNING *`,
       [dataValidade, observacoes, ativo, id],
     );
 

@@ -7,8 +7,12 @@ const {
   updateColaborador,
   deleteColaborador,
 } = require("../controllers/colaboradorController");
+const authMiddleware = require("../middleware/auth");
 
 const router = express.Router();
+
+// PROTEGE TODAS AS ROTAS DE COLABORADOR
+router.use(authMiddleware);
 
 router.route("/").get(getColaboradores).post(createColaborador);
 router

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:frontend/models/empresa_model.dart';
-import 'package:go_router/go_router.dart';
 import 'package:frontend/services/api_service.dart';
+import 'package:go_router/go_router.dart';
 
-class EmpresasScreen extends StatefulWidget {
-  const EmpresasScreen({super.key});
+class EmpresasListScreen extends StatefulWidget {
+  const EmpresasListScreen({super.key});
 
   @override
-  State<EmpresasScreen> createState() => _EmpresasScreenState();
+  State<EmpresasListScreen> createState() => _EmpresasListScreenState();
 }
 
-class _EmpresasScreenState extends State<EmpresasScreen> {
+class _EmpresasListScreenState extends State<EmpresasListScreen> {
   List<Empresa> _empresas = [];
   bool _isLoading = true;
 
@@ -24,7 +23,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
   Future<void> _carregarEmpresas() async {
     setState(() { _isLoading = true; });
     try {
-      final response = await ApiService.getEmpresas();
+      final response = await ApiService.getEmpresas(); // Assume que existe
       setState(() { _empresas = response.items; _isLoading = false; });
     } catch (e) {
       setState(() { _isLoading = false; });
@@ -38,7 +37,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
 
   Future<void> _criarEmpresa(String nome) async {
     try {
-      final empresa = await ApiService.createEmpresa(nome);
+      final empresa = await ApiService.createEmpresa(nome); // Assume que existe
       setState(() { _empresas.add(empresa); });
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -106,63 +105,6 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
           ),
         ],
       ),
-<<<<<<< HEAD
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _abrirFormulario,
-        icon: const Icon(Icons.add_business_outlined),
-        label: const Text('Nova empresa'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _carregarEmpresas,
-        child: ListView(
-          controller: _scrollController,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFE6F4EF), Color(0xFFE7EEFF)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Cadastro e manutencao de empresas',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Use essa tela para criar, editar e revisar os dados das empresas vinculadas aos colaboradores.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _searchController,
-                    onChanged: (_) =>
-                        _carregarEmpresas(), // Trigger search on change
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: 'Buscar por nome, CNPJ ou contato',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            if (_isLoading)
-              _isGridView
-                  ? GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: cardsCrossAxisCount,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.5,
-=======
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _empresas.isEmpty
@@ -178,7 +120,6 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                         onPressed: _abrirModalCriar,
                         icon: const Icon(Icons.add),
                         label: const Text('Criar Primeira Empresa'),
->>>>>>> 14e77d995daeddfa9c1120877bb980936b9b3e70
                       ),
                     ],
                   ),
@@ -195,7 +136,7 @@ class _EmpresasScreenState extends State<EmpresasScreen> {
                         trailing: IconButton(
                           icon: const Icon(Icons.arrow_forward_ios, size: 16),
                           onPressed: () {
-                            context.push('/dashboard/empresas/${empresa.id}');
+                            GoRouter.of(context).push('/dashboard/empresas/${empresa.id}');
                           },
                         ),
                       ),

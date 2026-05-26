@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/models/documento_model.dart';
 import 'package:frontend/models/empresa_model.dart';
+<<<<<<< HEAD
 import 'package:frontend/models/paginated_response.dart';
 import 'package:frontend/models/vinculo_model.dart';
+=======
+>>>>>>> 14e77d995daeddfa9c1120877bb980936b9b3e70
 import 'package:frontend/services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend/widgets/documento_card.dart';

@@ -10,8 +10,14 @@ import 'package:intl/intl.dart';
 class DocumentoCard extends StatelessWidget {
   final Documento documento;
   final VoidCallback? onOpen;
+  final VoidCallback? onReplace;
 
-  const DocumentoCard({super.key, required this.documento, this.onOpen});
+  const DocumentoCard({
+    super.key,
+    required this.documento,
+    this.onOpen,
+    this.onReplace,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -77,10 +83,29 @@ class DocumentoCard extends StatelessWidget {
             ),
             if (documento.arquivoPath != null && onOpen != null) ...[
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: onOpen,
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Abrir anexo'),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onOpen,
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text('Abrir anexo'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (onReplace != null)
+                    ElevatedButton.icon(
+                      onPressed: onReplace,
+                      icon: const Icon(Icons.swap_vert),
+                      label: Text('Substituir (v${documento.versao})'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ],
           ],
