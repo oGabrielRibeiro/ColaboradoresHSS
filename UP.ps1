@@ -7,40 +7,8 @@ param(
   [switch]$NoBuild
 )
 
-$ErrorActionPreference = "Stop"
-
-function Write-Step([string]$Message) {
-  Write-Host "`n==> $Message" -ForegroundColor Cyan
-}
-
-function Write-Ok([string]$Message) {
-  Write-Host "[OK] $Message" -ForegroundColor Green
-}
-
-function Write-WarnMsg([string]$Message) {
-  Write-Host "[WARN] $Message" -ForegroundColor Yellow
-}
-
-function Write-Fail([string]$Message) {
-  Write-Host "[ERRO] $Message" -ForegroundColor Red
-}
-
-function Assert-Command([string]$CommandName, [string]$InstallHint) {
-  if (-not (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
-    Write-Fail "$CommandName nao encontrado. $InstallHint"
-    exit 1
-  }
-}
-
-function Get-ComposeCmd {
-  try {
-    docker compose version | Out-Null
-    return @("docker", "compose")
-  } catch {
-    Write-Fail "Docker Compose V2 nao encontrado. Atualize o Docker Desktop."
-    exit 1
-  }
-}
+# Importa funções de utilidade compartilhadas
+. (Join-Path $PSScriptRoot "_common.ps1")
 
 function Ensure-EnvFile {
   if (-not (Test-Path ".env")) {
@@ -103,12 +71,13 @@ function Check-PortUsage([int[]]$Ports) {
     $tcp = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
     if ($tcp) {
       $pids = ($tcp | Select-Object -ExpandProperty OwningProcess -Unique)
-      $procNames = @()
-      foreach ($pid in $pids) {
+      $procNames = @() 
+      foreach ($processId in $pids) {
         try {
-          $procNames += (Get-Process -Id $pid -ErrorAction Stop).ProcessName
-        } catch {
-          $procNames += "PID:$pid"
+          $procNames += (Get-Process -Id $processId -ErrorAction Stop).ProcessName
+        }
+        catch {
+          $procNames += "PID:$processId"
         }
       }
       Write-WarnMsg "Porta $port ja em uso por: $($procNames -join ', ')"
@@ -127,7 +96,8 @@ function Wait-ApiHealth([int]$SecondsTimeout = 90) {
         Write-Ok "API saudavel em $url"
         return
       }
-    } catch {
+    }
+    catch {
       Start-Sleep -Seconds 2
     }
   }
@@ -143,10 +113,10 @@ function Start-Frontend([int]$Port) {
 
   Start-Process -FilePath "powershell" `
     -ArgumentList @(
-      "-NoExit",
-      "-Command",
-      "cd `"$frontendPath`"; flutter pub get; flutter run -d chrome --web-port $Port"
-    ) | Out-Null
+    "-NoExit",
+    "-Command",
+    "cd `"$frontendPath`"; flutter pub get; flutter run -d chrome --web-port $Port"
+  ) | Out-Null
 
   Write-Ok "Frontend iniciado em nova janela do PowerShell."
 }
@@ -158,7 +128,8 @@ $composeCmd = Get-ComposeCmd
 try {
   docker info | Out-Null
   Write-Ok "Docker Engine ativo."
-} catch {
+}
+catch {
   Write-Fail "Docker nao esta ativo. Abra o Docker Desktop e tente novamente."
   exit 1
 }
@@ -203,7 +174,8 @@ Write-Host "API:       http://localhost:3000" -ForegroundColor White
 Write-Host "Health:    http://localhost:3000/health" -ForegroundColor White
 if ($WithFrontend) {
   Write-Host "Frontend:  http://localhost:$FrontendPort" -ForegroundColor White
-} else {
+}
+else {
   Write-Host "Frontend:  execute manualmente em ./frontend com flutter run -d chrome --web-port $FrontendPort" -ForegroundColor White
 }
 Write-Host ""

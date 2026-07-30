@@ -179,10 +179,13 @@ class ApiService {
           .toList();
       final totalCount =
           int.tryParse(response.headers.value('x-total-count') ?? '0') ?? 0;
-      
+
       final hasMore = page * limit < totalCount;
       return PaginatedResponse(
-          items: items, totalCount: totalCount, hasMore: hasMore);
+        items: items,
+        totalCount: totalCount,
+        hasMore: hasMore,
+      );
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao carregar empresas'));
     }
@@ -220,7 +223,8 @@ class ApiService {
 
   static Future<void> deleteEmpresa(int id) async {
     try {
-      await _dio.delete('/empresas/$id');
+      // Alterado para soft delete (desativação)
+      await _dio.put('/empresas/$id/desativar');
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao remover empresa'));
     }
@@ -248,7 +252,10 @@ class ApiService {
 
       final hasMore = page * limit < totalCount;
       return PaginatedResponse(
-          items: items, totalCount: totalCount, hasMore: hasMore);
+        items: items,
+        totalCount: totalCount,
+        hasMore: hasMore,
+      );
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao carregar colaboradores'));
     }
@@ -289,7 +296,8 @@ class ApiService {
 
   static Future<void> deleteColaborador(int id) async {
     try {
-      await _dio.delete('/colaboradores/$id');
+      // Alterado para soft delete (desativação)
+      await _dio.put('/colaboradores/$id/desativar');
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao remover colaborador'));
     }
@@ -314,11 +322,7 @@ class ApiService {
     try {
       final response = await _dio.post(
         '/tipos-documento',
-        data: {
-          'nome': nome,
-          'tipo': tipo,
-          'descricao': descricao,
-        },
+        data: {'nome': nome, 'tipo': tipo, 'descricao': descricao},
       );
       return TipoDocumento.fromJson(response.data);
     } catch (e) {
@@ -335,11 +339,7 @@ class ApiService {
     try {
       final response = await _dio.put(
         '/tipos-documento/$id',
-        data: {
-          'nome': nome,
-          'tipo': tipo,
-          'descricao': descricao,
-        },
+        data: {'nome': nome, 'tipo': tipo, 'descricao': descricao},
       );
       return TipoDocumento.fromJson(response.data);
     } catch (e) {
@@ -384,20 +384,13 @@ class ApiService {
 
       final hasMore = page * limit < totalCount;
       return PaginatedResponse(
-          items: items, totalCount: totalCount, hasMore: hasMore);
+        items: items,
+        totalCount: totalCount,
+        hasMore: hasMore,
+      );
     } catch (e) {
       throw Exception(_extractError(e, 'Erro ao carregar documentos'));
     }
-  }
-
-  static Future<List<Documento>> getDocumentosPorColaborador(
-    int colaboradorId,
-  ) async {
-    final response = await getDocumentos(
-      colaboradorId: colaboradorId,
-      limit: 100,
-    );
-    return response.items;
   }
 
   static Future<Documento> createDocumento(Documento documento) async {
@@ -422,22 +415,6 @@ class ApiService {
     }
   }
 
-  static Future<List<Vinculo>> getVinculosPorColaborador(
-    int colaboradorId,
-  ) async {
-    try {
-      final response = await _dio.get(
-        '/vinculos',
-        queryParameters: {'colaborador_id': colaboradorId},
-      );
-      return (response.data as List)
-          .map((json) => Vinculo.fromJson(json))
-          .toList();
-    } catch (e) {
-      throw Exception(_extractError(e, 'Erro ao carregar vinculos'));
-    }
-  }
-
   static Future<Vinculo> createVinculo(Vinculo vinculo) async {
     try {
       final response = await _dio.post('/vinculos', data: vinculo.toJson());
@@ -455,15 +432,42 @@ class ApiService {
     }
   }
 
-  static Future<DashboardResumo> getDashboardResumo() async {
-  try {
-    final response = await _dio.get('/dashboard/resumo');
+  static Future<void> atualizarVinculos(
+    int colaboradorId,
+    List<int> novosIdsEmpresa,
+  ) async {
+    try {
+      // Esta é uma implementação simples. O ideal seria uma rota de "sync" no backend.
+      // 1. Pega os vínculos atuais
+      final vinculosAtuais = await getVinculos(colaboradorId: colaboradorId);
 
-    return DashboardResumo.fromJson(response.data);
-  } catch (e) {
-    throw Exception(_extractError(e, 'Erro ao carregar resumo'));
+      // 2. Remove todos os vínculos existentes para este colaborador
+      for (final vinculo in vinculosAtuais) {
+        if (vinculo.id != null) {
+          await deleteVinculo(vinculo.id!);
+        }
+      }
+
+      // 3. Cria os novos vínculos
+      for (final empresaId in novosIdsEmpresa) {
+        await createVinculo(
+          Vinculo(colaboradorId: colaboradorId, empresaId: empresaId),
+        );
+      }
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao atualizar vínculos'));
+    }
   }
-}
+
+  static Future<DashboardResumo> getDashboardResumo() async {
+    try {
+      final response = await _dio.get('/dashboard/resumo');
+
+      return DashboardResumo.fromJson(response.data);
+    } catch (e) {
+      throw Exception(_extractError(e, 'Erro ao carregar resumo'));
+    }
+  }
 
   static Future<Map<String, dynamic>> uploadArquivo(
     FilePickerResult arquivo, {
@@ -506,7 +510,9 @@ class ApiService {
         return {
           ...data,
           'arquivo_nome':
-              fileMap['originalname'] ?? fileMap['filename'] ?? data['arquivo_nome'],
+              fileMap['originalname'] ??
+              fileMap['filename'] ??
+              data['arquivo_nome'],
           'arquivo_path': fileMap['path'] ?? data['arquivo_path'],
         };
       }

@@ -3,6 +3,10 @@ import 'package:frontend/models/colaborador_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:frontend/theme/app_theme.dart';
+import 'package:frontend/widgets/colaborador_grid_card.dart';
+import 'package:frontend/widgets/colaborador_skeleton_card.dart';
+import 'package:frontend/widgets/empty_state_widget.dart';
+import 'package:frontend/widgets/error_state_widget.dart';
 
 class ColaboradoresListScreen extends StatefulWidget {
   const ColaboradoresListScreen({super.key});
@@ -239,9 +243,9 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Excluir colaborador'),
+        title: const Text('Desativar colaborador'),
         content: Text(
-          'Deseja remover "${colaborador.nome}"? Isso tambem removera vinculos e documentos associados.',
+          'Deseja desativar "${colaborador.nome}"? O colaborador não aparecerá mais nas listas ativas, mas seus dados e histórico de documentos serão mantidos.',
         ),
         actions: [
           TextButton(
@@ -251,7 +255,7 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
-            child: const Text('Excluir'),
+            child: const Text('Desativar'),
           ),
         ],
       ),
@@ -266,7 +270,7 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
       await _carregarColaboradores();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Colaborador removido com sucesso')),
+          const SnackBar(content: Text('Colaborador desativado com sucesso')),
         );
       }
     } catch (e) {
@@ -339,148 +343,7 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            if (_isLoading)
-              _isGridView
-                  ? GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount:
-                                2, // Ajustar conforme a largura da tela
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio:
-                                1.2, // Ajustar conforme o conteudo
-                          ),
-                      itemCount: 4, // Mostra 4 esqueletos no grid
-                      itemBuilder: (context, index) =>
-                          const _ColaboradorSkeletonCard(),
-                    )
-                  : Column(
-                      children: List.generate(
-                        5,
-                        (index) => const Padding(
-                          padding: EdgeInsets.only(bottom: 12),
-                          child: _ColaboradorSkeletonCard(),
-                        ),
-                      ),
-                    )
-            else if (_errorMessage.isNotEmpty && _colaboradores.isEmpty)
-              _ErrorState(
-                message: _errorMessage,
-                onRetry: _carregarColaboradores,
-              )
-            else if (_colaboradores.isEmpty) // Estado vazio
-              const _EmptyState(
-                title: 'Nenhum colaborador encontrado',
-                message:
-                    'Use o botao abaixo para cadastrar o primeiro colaborador.',
-              )
-            else if (_isGridView) // Visualizacao em Grid (usar GridView.builder diretamente)
-              GridView.builder(
-                // Usar GridView.builder diretamente
-                key: const PageStorageKey('colaboradoresGridView'),
-                shrinkWrap:
-                    true, // Permite que o GridView se ajuste ao conteudo
-                physics:
-                    const NeverScrollableScrollPhysics(), // Desabilita o scroll do GridView interno
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // Ajustar conforme a largura da tela
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.2, // Ajustar conforme o conteudo
-                ),
-                itemCount:
-                    _colaboradores.length +
-                    (_isLoadingMore
-                        ? 1
-                        : 0), // Adiciona 1 para o indicador de carregamento
-                itemBuilder: (context, index) {
-                  if (index == _colaboradores.length) {
-                    return _buildLoadingMoreIndicator(); // Indicador de carregamento no final
-                  }
-                  return _ColaboradorGridCard(
-                    colaborador: _colaboradores[index],
-                    onEdit: () => _abrirFormulario(_colaboradores[index]),
-                    onDelete: () => _confirmarExclusao(_colaboradores[index]),
-                    onTap: () async {
-                      context.push(
-                        '/dashboard/colaboradores/${_colaboradores[index].id}',
-                      );
-                      await _carregarColaboradores();
-                    },
-                  );
-                },
-              )
-            else // Visualizacao em Lista (usar ListView.builder diretamente)
-              ListView.builder(
-                // Usar ListView.builder diretamente
-                key: const PageStorageKey('colaboradoresListView'),
-                shrinkWrap:
-                    true, // Permite que o ListView se ajuste ao conteudo
-                physics:
-                    const NeverScrollableScrollPhysics(), // Desabilita o scroll do ListView interno
-                itemCount: _colaboradores.length + (_isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _colaboradores.length) {
-                    return _buildLoadingMoreIndicator();
-                  }
-                  final colaborador = _colaboradores[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 10,
-                        ),
-                        leading: CircleAvatar(
-                          backgroundColor: AppTheme.primaryGreen.withValues(
-                            alpha: 0.12,
-                          ),
-                          foregroundColor: AppTheme.primaryGreen,
-                          child: Text(colaborador.nome[0].toUpperCase()),
-                        ),
-                        title: Text(colaborador.nome),
-                        subtitle: Text(
-                          colaborador.email?.isNotEmpty == true
-                              ? colaborador.email!
-                              : colaborador.telefone?.isNotEmpty == true
-                              ? colaborador.telefone!
-                              : 'Sem contato informado',
-                        ),
-                        onTap: () async {
-                          // Usar GoRouter para navegar para detalhes
-                          context.push(
-                            '/dashboard/colaboradores/${colaborador.id}',
-                          );
-                          await _carregarColaboradores();
-                        },
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (value) {
-                            if (value == 'editar') {
-                              _abrirFormulario(colaborador);
-                            } else if (value == 'excluir') {
-                              _confirmarExclusao(colaborador);
-                            }
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(
-                              value: 'editar',
-                              child: Text('Editar'),
-                            ),
-                            PopupMenuItem(
-                              value: 'excluir',
-                              child: Text('Excluir'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+            _buildBody(),
           ],
         ),
       ),
@@ -495,201 +358,135 @@ class _ColaboradoresListScreenState extends State<ColaboradoresListScreen> {
       ),
     );
   }
-}
 
-class _ColaboradorSkeletonCard extends StatelessWidget {
-  const _ColaboradorSkeletonCard();
+  Widget _buildBody() {
+    if (_isLoading) {
+      return _isGridView ? _buildSkeletonGrid() : _buildSkeletonList();
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    final skeletonColor = Colors.grey.withValues(alpha: 0.2);
+    if (_errorMessage.isNotEmpty && _colaboradores.isEmpty) {
+      return ErrorStateWidget(
+        message: _errorMessage,
+        onRetry: _carregarColaboradores,
+      );
+    }
 
-    return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 10,
+    if (_colaboradores.isEmpty) {
+      return const EmptyStateWidget(
+        title: 'Nenhum colaborador encontrado',
+        message: 'Use o botão "Novo colaborador" para cadastrar o primeiro.',
+        icon: Icons.people_outline,
+      );
+    }
+
+    final itemCount = _colaboradores.length + (_isLoadingMore ? 1 : 0);
+
+    if (_isGridView) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      // Ajusta o número de colunas com base na largura da tela.
+      final crossAxisCount = (screenWidth / 300).floor().clamp(2, 5);
+
+      return GridView.builder(
+        key: const PageStorageKey('colaboradoresGridView'),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.2,
         ),
-        leading: CircleAvatar(backgroundColor: skeletonColor),
-        title: Container(
-          width: double.infinity,
-          height: 16,
-          decoration: BoxDecoration(
-            color: skeletonColor,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        subtitle: Container(
-          margin: const EdgeInsets.only(top: 8),
-          width: 150,
-          height: 12,
-          decoration: BoxDecoration(
-            color: skeletonColor,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        trailing: Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            color: skeletonColor,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ),
-    );
-  }
-}
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          if (index == _colaboradores.length) {
+            return _buildLoadingMoreIndicator();
+          }
+          final colaborador = _colaboradores[index];
+          return ColaboradorGridCard(
+            colaborador: colaborador,
+            onEdit: () => _abrirFormulario(colaborador),
+            onDelete: () => _confirmarExclusao(colaborador),
+            onTap: () =>
+                context.push('/dashboard/colaboradores/${colaborador.id}'),
+          );
+        },
+      );
+    }
 
-class _ColaboradorGridCard extends StatelessWidget {
-  final Colaborador colaborador;
-
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onTap;
-
-  const _ColaboradorGridCard({
-    required this.colaborador,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                backgroundColor: AppTheme.primaryGreen.withValues(alpha: 0.12),
+    return ListView.builder(
+      key: const PageStorageKey('colaboradoresListView'),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (index == _colaboradores.length) {
+          return _buildLoadingMoreIndicator();
+        }
+        final colaborador = _colaboradores[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Card(
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 10,
+              ),
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.primaryGreen.withAlpha(30),
                 foregroundColor: AppTheme.primaryGreen,
-                radius: 28,
                 child: Text(
-                  colaborador.nome[0].toUpperCase(),
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  colaborador.nome.isNotEmpty
+                      ? colaborador.nome[0].toUpperCase()
+                      : '?',
                 ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                colaborador.nome,
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              title: Text(colaborador.nome),
+              subtitle: Text(
+                colaborador.email ??
+                    colaborador.telefone ??
+                    'Sem contato informado',
               ),
-              const SizedBox(height: 4),
-              Text(
-                colaborador.email?.isNotEmpty == true
-                    ? colaborador.email!
-                    : colaborador.telefone?.isNotEmpty == true
-                    ? colaborador.telefone!
-                    : 'Sem contato',
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const Spacer(),
-              PopupMenuButton<String>(
+              onTap: () =>
+                  context.push('/dashboard/colaboradores/${colaborador.id}'),
+              trailing: PopupMenuButton<String>(
                 onSelected: (value) {
-                  if (value == 'editar') onEdit();
-                  if (value == 'excluir') onDelete();
+                  if (value == 'editar') _abrirFormulario(colaborador);
+                  if (value == 'excluir') _confirmarExclusao(colaborador);
                 },
                 itemBuilder: (context) => const [
                   PopupMenuItem(value: 'editar', child: Text('Editar')),
                   PopupMenuItem(value: 'excluir', child: Text('Excluir')),
                 ],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.more_vert, size: 20),
-                ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
-}
 
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final Future<void> Function() onRetry;
-
-  const _ErrorState({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              size: 36,
-              color: AppTheme.danger,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Tentar novamente'),
-            ),
-          ],
-        ),
+  Widget _buildSkeletonGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.2,
       ),
+      itemCount: 4,
+      itemBuilder: (context, index) => const ColaboradorSkeletonCard(),
     );
   }
-}
 
-class _EmptyState extends StatelessWidget {
-  final String title;
-  final String message;
-
-  const _EmptyState({required this.title, required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Icon(
-              Icons.inbox_outlined,
-              size: 42,
-              color: AppTheme.textLight,
-            ),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+  Widget _buildSkeletonList() {
+    return Column(
+      children: List.generate(
+        5,
+        (index) => const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: ColaboradorSkeletonCard(),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/screens/test_documento_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:frontend/screens/colaborador_detail_screen.dart';
 import 'package:frontend/screens/empresa_detail_screen.dart';
@@ -8,11 +9,7 @@ import 'package:frontend/screens/documentos_status_screen.dart';
 import 'package:frontend/screens/documento_create_screen.dart';
 import 'package:frontend/screens/empresas_screen.dart';
 import 'package:frontend/screens/login_screen.dart';
-<<<<<<< HEAD
 import 'package:frontend/screens/tipos_documento_screen.dart';
-=======
-import 'package:frontend/screens/test_documento_screen.dart';
->>>>>>> 14e77d995daeddfa9c1120877bb980936b9b3e70
 import 'package:frontend/services/api_service.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -67,11 +64,12 @@ final GoRouter appRouter = GoRouter(
               path: ':id', // Rota para /dashboard/colaboradores/:id
               builder: (BuildContext context, GoRouterState state) {
                 final id = int.parse(state.pathParameters['id']!);
-                return ColaboradorDetailScreen(colaboradorId: id);
+                return ColaboradorDetailScreen(colaboradorId: id.toString());
               },
               routes: <RouteBase>[
                 GoRoute(
-                  path: 'criar-documento', // Rota para /dashboard/colaboradores/:id/criar-documento
+                  path:
+                      'criar-documento', // Rota para /dashboard/colaboradores/:id/criar-documento
                   builder: (BuildContext context, GoRouterState state) {
                     final id = int.parse(state.pathParameters['id']!);
                     return TestDocumentoScreen(colaboradorId: id);

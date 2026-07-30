@@ -190,20 +190,8 @@ const createDocumento = async (req, res) => {
 
     const existente = await pool.query(
       `SELECT id
-<<<<<<< HEAD
-         FROM documentos
-         WHERE colaborador_id = $1
-           AND tipo_documento_id = $2
-           AND (
-             (empresa_id = $3)
-             OR ($3 IS NULL AND empresa_id IS NULL)
-           )
-           AND ativo = true
-           AND deleted_at IS NULL`,
-      [colaboradorId, tipoDocumentoId, empresaId],
-=======
       FROM documentos
-      WHERE d.colaborador_id = $1
+      WHERE colaborador_id = $1
       AND tipo_documento_id = $2
       AND (
         (empresa_id = $3)
@@ -212,7 +200,6 @@ const createDocumento = async (req, res) => {
       AND ativo = true
       AND deleted_at IS NULL`,
       [colaboradorId, tipoDocumentoId, empresaIdFinal],
->>>>>>> 14e77d995daeddfa9c1120877bb980936b9b3e70
     );
 
     if (existente.rows.length > 0) {

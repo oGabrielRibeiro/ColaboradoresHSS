@@ -1,12 +1,14 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+
 import 'package:frontend/models/documento_model.dart';
 import 'package:frontend/services/api_service.dart';
 import 'package:go_router/go_router.dart';
-// Importar para _ErrorState e _EmptyState
-import 'package:frontend/theme/app_theme.dart';
-import 'package:frontend/widgets/document_utils.dart'; // Caminho corrigido
+import 'package:frontend/widgets/documento_card.dart';
+import 'package:frontend/widgets/documento_grid_card.dart';
+import 'package:frontend/widgets/error_state_widget.dart';
 
 class DocumentosStatusScreen extends StatefulWidget {
   final String status;
@@ -133,30 +135,143 @@ class _DocumentosStatusScreenState extends State<DocumentosStatusScreen> {
     }
   }
 
-  Color _statusColor(DateTime validade) {
-    final hoje = DateTime.now();
-    final dias = validade.difference(hoje).inDays;
+  Future<void> _substituirDocumento(Documento documento) async {
+    // 1. Selecionar novo arquivo
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'png'],
+    );
 
-    if (validade.isBefore(hoje)) {
-      return AppTheme.danger;
+    if (result == null) return; // Usuário cancelou
+
+    final file = result.files.single;
+
+    // 2. Pedir nova data de validade
+    if (!mounted) return;
+    final novaData = await showDatePicker(
+      context: context,
+      initialDate: documento.dataValidade,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (novaData == null) return; // Usuário cancelou
+
+    // 3. Mostrar diálogo de confirmação
+    if (!mounted) return;
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar Substituição'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Documento: ${documento.tipoDocumentoNome} (v${documento.versao})',
+            ),
+            const SizedBox(height: 8),
+            Text('Novo arquivo: ${file.name}'),
+            const SizedBox(height: 8),
+            Text('Nova validade: ${DateFormat('dd/MM/yyyy').format(novaData)}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Substituir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    // 4. Enviar para a API
+    try {
+      await ApiService.uploadArquivo(
+        result,
+        documentoId: documento.id,
+        novaValidade: DateFormat('yyyy-MM-dd').format(novaData),
+      );
+      await _carregarDocumentos(); // Recarrega os documentos da tela
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Documento substituído com sucesso!')),
+        );
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Erro ao substituir: ${e.toString().replaceFirst('Exception: ', '')}',
+            ),
+          ),
+        );
     }
-    if (dias <= 30) {
-      return AppTheme.warning;
-    }
-    return AppTheme.success;
   }
 
-  String _statusLabel(DateTime validade) {
-    final hoje = DateTime.now();
-    final dias = validade.difference(hoje).inDays;
+  Future<void> _mostrarHistorico(Documento documento) async {
+    List<Documento>? historico;
+    String? erro;
 
-    if (validade.isBefore(hoje)) {
-      return 'Vencido';
+    // Mostra um diálogo de carregamento inicial
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      historico = await ApiService.getHistoricoDocumento(documento.id!);
+    } catch (e) {
+      erro = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      if (mounted) {
+        Navigator.pop(context); // Fecha o diálogo de carregamento
+      }
     }
-    if (dias <= 30) {
-      return 'A vencer';
-    }
-    return 'Em dia';
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Histórico de Versões'),
+        content: SizedBox(
+          width: 400,
+          child: erro != null
+              ? Text('Erro ao carregar histórico: $erro')
+              : historico == null || historico.isEmpty
+                  ? const Text('Nenhuma versão anterior encontrada.')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: historico.length,
+                      itemBuilder: (context, index) {
+                        final versao = historico![index];
+                        return ListTile(
+                          leading: CircleAvatar(child: Text('v${versao.versao}')),
+                          title: Text(
+                            'Validade: ${DateFormat('dd/MM/yyyy').format(versao.dataValidade)}',
+                          ),
+                          subtitle: Text(
+                            'Enviado em: ${DateFormat('dd/MM/yyyy HH:mm').format(versao.createdAt!)}',
+                          ),
+                          onTap: () => _abrirArquivo(versao.arquivoPath),
+                        );
+                      },
+                    ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -201,7 +316,8 @@ class _DocumentosStatusScreenState extends State<DocumentosStatusScreen> {
                         label: const Text('Voltar ao painel'),
                       ),
                       ElevatedButton.icon(
-                        onPressed: () => context.push('/dashboard/documentos/novo'),
+                        onPressed: () =>
+                            context.push('/dashboard/documentos/novo'),
                         icon: const Icon(Icons.add_circle_outline_rounded),
                         label: const Text('Novo documento'),
                       ),
@@ -211,189 +327,7 @@ class _DocumentosStatusScreenState extends State<DocumentosStatusScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            if (_isLoading)
-              _isGridView
-                  ? GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount:
-                                2, // Ajustar conforme a largura da tela
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio:
-                                1.0, // Ajustar conforme o conteudo
-                          ),
-                      itemCount: 4, // Mostra 4 esqueletos no grid
-                      itemBuilder: (context, index) =>
-                          const _DocumentoSkeletonCard(),
-                    )
-                  : Column(
-                      children: List.generate(
-                        4,
-                        (index) => const Padding(
-                          padding: EdgeInsets.only(bottom: 12),
-                          child: _DocumentoSkeletonCard(),
-                        ),
-                      ),
-                    )
-            else if (_errorMessage.isNotEmpty &&
-                _documentos.isEmpty) // Estado de erro
-              _ErrorState(message: _errorMessage, onRetry: _carregarDocumentos)
-            else if (_documentos.isEmpty) // Estado vazio
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Nenhum documento encontrado para este filtro'),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: () => context.push('/dashboard/documentos/novo'),
-                        icon: const Icon(Icons.upload_file_rounded),
-                        label: const Text('Cadastrar documento'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else if (_isGridView) // Visualizacao em Grid (usar GridView.builder diretamente)
-              GridView.builder(
-                // Usar GridView.builder diretamente
-                key: const PageStorageKey('documentosGridView'),
-                shrinkWrap:
-                    true, // Permite que o GridView se ajuste ao conteudo
-                physics:
-                    const NeverScrollableScrollPhysics(), // Desabilita o scroll do GridView interno
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // Ajustar conforme a largura da tela
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.0, // Ajustar conforme o conteudo
-                ),
-                itemCount:
-                    _documentos.length +
-                    (_isLoadingMore
-                        ? 1
-                        : 0), // Adiciona 1 para o indicador de carregamento
-                itemBuilder: (context, index) {
-                  if (index == _documentos.length) {
-                    return _buildLoadingMoreIndicator(); // Indicador de carregamento no final
-                  }
-                  return _DocumentoGridCard(
-                    documento: _documentos[index],
-                    onOpen: _abrirArquivo,
-                  );
-                },
-              )
-            else // Visualizacao em Lista (usar ListView.builder diretamente)
-              ListView.builder(
-                // Usar ListView.builder diretamente
-                key: const PageStorageKey('documentosListView'),
-                shrinkWrap:
-                    true, // Permite que o ListView se ajuste ao conteudo
-                physics:
-                    const NeverScrollableScrollPhysics(), // Desabilita o scroll do ListView interno
-                itemCount: _documentos.length + (_isLoadingMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == _documentos.length) {
-                    return _buildLoadingMoreIndicator();
-                  }
-                  final documento = _documentos[index];
-                  final statusColor = _statusColor(documento.dataValidade);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Icon(
-                                  DocumentUtils.getIconForFileName(
-                                    documento.arquivoNome ?? '',
-                                  ),
-                                  color: statusColor,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    documento.tipoDocumentoNome ?? 'Documento',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleMedium,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Chip(
-                                  label: Text(
-                                    _statusLabel(documento.dataValidade),
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                  backgroundColor: statusColor,
-                                  padding: EdgeInsets.zero,
-                                  labelPadding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              documento.colaboradorNome ??
-                                  'Colaborador nao identificado',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            if (documento.empresaNome != null)
-                              Text(
-                                'Empresa: ${documento.empresaNome}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            Text(
-                              'Validade: ${DateFormat('dd/MM/yyyy').format(documento.dataValidade)}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Text(
-                              'Versao ${documento.versao}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                if (documento.arquivoPath != null)
-                                  OutlinedButton.icon(
-                                    onPressed: () =>
-                                        _abrirArquivo(documento.arquivoPath),
-                                    icon: const Icon(Icons.open_in_new),
-                                    label: const Text('Abrir anexo'),
-                                  ),
-                                const SizedBox(width: 8),
-                                OutlinedButton.icon(
-                                  onPressed: () => context.push(
-                                    '/dashboard/colaboradores/${documento.colaboradorId}',
-                                  ),
-                                  icon: const Icon(Icons.link_rounded),
-                                  label: const Text('Ver vínculo'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+            _buildBody(),
           ],
         ),
       ),
@@ -408,216 +342,89 @@ class _DocumentosStatusScreenState extends State<DocumentosStatusScreen> {
       ),
     );
   }
-}
 
-// Reutilizando _ErrorState e _EmptyState de empresas_screen.dart
-// Idealmente, estes deveriam ser widgets globais em um arquivo separado (ex: widgets/status_widgets.dart)
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final Future<void> Function() onRetry;
-
-  const _ErrorState({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Tentar novamente'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DocumentoSkeletonCard extends StatelessWidget {
-  const _DocumentoSkeletonCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final skeletonColor = Colors.grey.withValues(alpha: 0.2);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: skeletonColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Container(
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: skeletonColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Container(
-                  width: 60,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: skeletonColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              height: 14,
-              width: 200,
-              decoration: BoxDecoration(
-                color: skeletonColor,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              height: 12,
-              width: 150,
-              decoration: BoxDecoration(
-                color: skeletonColor,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              height: 12,
-              width: 100,
-              decoration: BoxDecoration(
-                color: skeletonColor,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DocumentoGridCard extends StatelessWidget {
-  final Documento documento;
-  final Function(String?) onOpen;
-
-  const _DocumentoGridCard({required this.documento, required this.onOpen});
-
-  Color _statusColor(DateTime validade) {
-    final hoje = DateTime.now();
-    final dias = validade.difference(hoje).inDays;
-
-    if (validade.isBefore(hoje)) {
-      return AppTheme.danger;
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
-    if (dias <= 30) {
-      return AppTheme.warning;
-    }
-    return AppTheme.success;
-  }
 
-  String _statusLabel(DateTime validade) {
-    final hoje = DateTime.now();
-    final dias = validade.difference(hoje).inDays;
-
-    if (validade.isBefore(hoje)) {
-      return 'Vencido';
+    if (_errorMessage.isNotEmpty && _documentos.isEmpty) {
+      return ErrorStateWidget(
+        message: _errorMessage,
+        onRetry: _carregarDocumentos,
+      );
     }
-    if (dias <= 30) {
-      return 'A vencer';
-    }
-    return 'Em dia';
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = _statusColor(documento.dataValidade);
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => onOpen(documento.arquivoPath),
+    if (_documentos.isEmpty) {
+      return Card(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Icon(
-                    DocumentUtils.getIconForFileName(
-                      documento.arquivoNome ?? '',
-                    ),
-                    color: statusColor,
-                    size: 24,
-                  ),
-                  Chip(
-                    label: Text(
-                      _statusLabel(documento.dataValidade),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    backgroundColor: statusColor,
-                    padding: EdgeInsets.zero,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
-                ],
-              ),
+              const Text('Nenhum documento encontrado para este filtro.'),
               const SizedBox(height: 12),
-              Text(
-                documento.tipoDocumentoNome ?? 'Documento',
-                style: Theme.of(context).textTheme.titleMedium,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                documento.colaboradorNome ?? 'Colaborador nao identificado',
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (documento.empresaNome != null)
-                Text(
-                  'Empresa: ${documento.empresaNome}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              const Spacer(),
-              Text(
-                'Validade: ${DateFormat('dd/MM/yyyy').format(documento.dataValidade)}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              Text(
-                'Versao ${documento.versao}',
-                style: Theme.of(context).textTheme.bodySmall,
+              ElevatedButton.icon(
+                onPressed: () => context.push('/dashboard/documentos/novo'),
+                icon: const Icon(Icons.upload_file_rounded),
+                label: const Text('Cadastrar documento'),
               ),
             ],
           ),
         ),
-      ),
+      );
+    }
+
+    final itemCount = _documentos.length + (_isLoadingMore ? 1 : 0);
+
+    if (_isGridView) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      // Ajusta o número de colunas com base na largura da tela.
+      final crossAxisCount = (screenWidth / 350).floor().clamp(2, 5);
+
+      return GridView.builder(
+        key: const PageStorageKey('documentosGridView'),
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.0,
+        ),
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          if (index == _documentos.length) {
+            return _buildLoadingMoreIndicator();
+          }
+          return DocumentoGridCard(
+            documento: _documentos[index],
+            onOpen: () => _abrirArquivo(_documentos[index].arquivoPath),
+          );
+        },
+      );
+    }
+
+    return ListView.builder(
+      key: const PageStorageKey('documentosListView'),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (index == _documentos.length) {
+          return _buildLoadingMoreIndicator();
+        }
+        final documento = _documentos[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DocumentoCard(
+            documento: documento,
+            onOpen: () => _abrirArquivo(documento.arquivoPath),
+            onReplace: () => _substituirDocumento(documento),
+            onShowHistory: () => _mostrarHistorico(documento),
+          ),
+        );
+      },
     );
   }
 }

@@ -11,12 +11,14 @@ class DocumentoCard extends StatelessWidget {
   final Documento documento;
   final VoidCallback? onOpen;
   final VoidCallback? onReplace;
+  final VoidCallback? onShowHistory;
 
   const DocumentoCard({
     super.key,
     required this.documento,
     this.onOpen,
     this.onReplace,
+    this.onShowHistory,
   });
 
   @override
@@ -58,6 +60,14 @@ class DocumentoCard extends StatelessWidget {
                   ),
                 ),
                 Chip(label: Text(statusTexto)),
+                if (onShowHistory != null) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.history),
+                    onPressed: onShowHistory,
+                    tooltip: 'Ver histórico de versões',
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 12),

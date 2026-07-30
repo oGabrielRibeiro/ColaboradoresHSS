@@ -30,8 +30,8 @@ class _VinculosScreenState extends State<VinculosScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final vinculos = await ApiService.getVinculosPorColaborador(
-        widget.colaborador.id!,
+      final vinculos = await ApiService.getVinculos(
+        colaboradorId: widget.colaborador.id!,
       );
       final empresasResponse = await ApiService.getEmpresas(limit: 1000);
       final empresas = empresasResponse.items;
